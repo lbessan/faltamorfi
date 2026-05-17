@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cross-env SERWIST_SUPPRESS_TURBOPACK_WARNING=1 next dev",
+    "dev": "cross-env SERWIST_SUPPRESS_TURBOPACK_WARNING=1 next dev -p 3002",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",

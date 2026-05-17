@@ -40,20 +40,18 @@ function normalizeUnit(value: string): Unit {
   return (UNITS as readonly string[]).includes(value) ? (value as Unit) : "un";
 }
 
-/**
- * Convierte errores conocidos de Postgres en mensajes legibles en español.
- * Trabaja con el shape de error de Supabase (PostgrestError tiene `code`).
- */
 function describeError(err: unknown): string {
   if (typeof err === "object" && err !== null && "code" in err) {
     const code = (err as { code?: string }).code;
     if (code === "23505") {
-      return "Ya tenés otro producto con ese mismo código de barras.";
+      return "Ese código de barras ya está en otro lote.";
     }
   }
   return err instanceof Error ? err.message : "Error desconocido.";
 }
 
+// ----------------------------------------------------------------------------
+// Productos (tipos)
 // ----------------------------------------------------------------------------
 
 export async function addProductAction(
@@ -70,28 +68,19 @@ export async function addProductAction(
     await insertProduct(supabase, {
       household_id: household.id,
       name,
-      brand: asNullableString(formData.get("brand")),
       category: asNullableString(formData.get("category")),
       unit: normalizeUnit(asString(formData.get("unit")) || "un"),
-      quantity: asNumber(formData.get("quantity"), 0),
       low_stock_threshold: asNumber(formData.get("low_stock_threshold"), 1),
       default_location_id: asNullableString(formData.get("default_location_id")),
-      barcode: asNullableString(formData.get("barcode")),
-      image_url: asNullableString(formData.get("image_url")),
       notes: asNullableString(formData.get("notes")),
     });
 
     revalidatePath(INVENTORY_PATH);
     return { status: "success", message: "Producto agregado." };
   } catch (err) {
-    return {
-      status: "error",
-      message: describeError(err),
-    };
+    return { status: "error", message: describeError(err) };
   }
 }
-
-// ----------------------------------------------------------------------------
 
 export async function updateProductAction(
   _prev: ActionState,
@@ -108,33 +97,91 @@ export async function updateProductAction(
 
     await updateProduct(supabase, id, {
       name,
-      brand: asNullableString(formData.get("brand")),
       category: asNullableString(formData.get("category")),
       unit: normalizeUnit(asString(formData.get("unit")) || "un"),
-      quantity: asNumber(formData.get("quantity"), 0),
       low_stock_threshold: asNumber(formData.get("low_stock_threshold"), 1),
       default_location_id: asNullableString(formData.get("default_location_id")),
-      barcode: asNullableString(formData.get("barcode")),
-      image_url: asNullableString(formData.get("image_url")),
       notes: asNullableString(formData.get("notes")),
     });
 
     revalidatePath(INVENTORY_PATH);
     return { status: "success", message: "Producto actualizado." };
   } catch (err) {
-    return {
-      status: "error",
-      message: describeError(err),
-    };
+    return { status: "error", message: describeError(err) };
   }
 }
-
-// ----------------------------------------------------------------------------
 
 export async function deleteProductAction(productId: string): Promise<void> {
   const supabase = await createClient();
   await deleteProduct(supabase, productId);
   revalidatePath(INVENTORY_PATH);
+}
+
+// ----------------------------------------------------------------------------
+// Alta combinada: crear producto + primer lote en una sola operación.
+// ----------------------------------------------------------------------------
+
+export type CreateProductWithLotInput = {
+  product: {
+    name: string;
+    category: string | null;
+    unit: Unit;
+    low_stock_threshold: number;
+    default_location_id: string | null;
+    notes: string | null;
+  };
+  lot: {
+    quantity: number;
+    location_id: string | null;
+    expires_on: string | null;
+    frozen_at: string | null;
+    frozen_max_days: number | null;
+    brand: string | null;
+    barcode: string | null;
+    image_url: string | null;
+    notes: string | null;
+  };
+};
+
+export async function createProductWithLotAction(
+  input: CreateProductWithLotInput,
+): Promise<ActionState> {
+  if (!input.product.name.trim()) {
+    return { status: "error", message: "El nombre es obligatorio." };
+  }
+  if (!Number.isFinite(input.lot.quantity) || input.lot.quantity <= 0) {
+    return { status: "error", message: "La cantidad debe ser mayor a 0." };
+  }
+
+  try {
+    const supabase = await createClient();
+    const household = await requireCurrentHousehold(supabase);
+
+    const product = await insertProduct(supabase, {
+      household_id: household.id,
+      ...input.product,
+      unit: normalizeUnit(input.product.unit),
+    });
+
+    await insertStockItem(supabase, {
+      product_id: product.id,
+      quantity: input.lot.quantity,
+      location_id:
+        input.lot.location_id ?? input.product.default_location_id ?? null,
+      expires_on: input.lot.expires_on,
+      frozen_at: input.lot.frozen_at,
+      frozen_max_days: input.lot.frozen_max_days,
+      brand: input.lot.brand,
+      barcode: input.lot.barcode,
+      image_url: input.lot.image_url,
+      notes: input.lot.notes,
+    });
+
+    revalidatePath(INVENTORY_PATH);
+    return { status: "success", message: "Producto creado." };
+  } catch (err) {
+    return { status: "error", message: describeError(err) };
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -168,6 +215,9 @@ export type LotInput = {
   expires_on?: string | null;
   frozen_at?: string | null;
   frozen_max_days?: number | null;
+  brand?: string | null;
+  barcode?: string | null;
+  image_url?: string | null;
   notes?: string | null;
 };
 
@@ -188,6 +238,9 @@ export async function addLotAction(input: LotInput): Promise<ActionState> {
       expires_on: input.expires_on ?? null,
       frozen_at: input.frozen_at ?? null,
       frozen_max_days: input.frozen_max_days ?? null,
+      brand: input.brand ?? null,
+      barcode: input.barcode ?? null,
+      image_url: input.image_url ?? null,
       notes: input.notes ?? null,
     });
 
@@ -210,6 +263,9 @@ export async function updateLotAction(
       expires_on: patch.expires_on,
       frozen_at: patch.frozen_at,
       frozen_max_days: patch.frozen_max_days,
+      brand: patch.brand,
+      barcode: patch.barcode,
+      image_url: patch.image_url,
       notes: patch.notes,
     });
 
@@ -225,4 +281,3 @@ export async function deleteLotAction(lotId: string): Promise<void> {
   await deleteStockItem(supabase, lotId);
   revalidatePath(INVENTORY_PATH);
 }
-

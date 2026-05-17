@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Snowflake, Sparkles, X } from "lucide-react";
+import Image from "next/image";
+import { Loader2, ScanLine, Snowflake, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,15 +19,26 @@ import type { StockItemWithLocation } from "@/lib/db/stock-items";
 import { addLotAction, updateLotAction, type LotInput } from "../actions";
 import { EMPTY_VALUE_SENTINEL } from "../constants";
 
+export type LotPrefill = {
+  brand?: string | null;
+  barcode?: string | null;
+  image_url?: string | null;
+  expires_on?: string | null;
+  notes?: string | null;
+};
+
 type Props = {
   productId: string;
   productName: string;
-  productBrand?: string | null;
   productCategory?: string | null;
   locations: Location[];
   lot?: StockItemWithLocation;
   /** Default location id sugerido para nuevos lotes. */
   defaultLocationId?: string | null;
+  /** Datos prellenados (típicamente desde Open Food Facts via escaneo). */
+  prefill?: LotPrefill;
+  /** Si está definido, se muestra botón "Escanear código" que invoca al padre. */
+  onScanClick?: () => void;
   onClose: () => void;
 };
 
@@ -39,11 +51,12 @@ type FreezerSuggestion = {
 export function LotForm({
   productId,
   productName,
-  productBrand,
   productCategory,
   locations,
   lot,
   defaultLocationId,
+  prefill,
+  onScanClick,
   onClose,
 }: Props) {
   const router = useRouter();
@@ -52,13 +65,29 @@ export function LotForm({
   const [suggesting, setSuggesting] = useState(false);
   const [suggestion, setSuggestion] = useState<FreezerSuggestion | null>(null);
 
+  // Estado del form
   const [quantity, setQuantity] = useState<string>(
     lot ? String(lot.quantity) : "1",
   );
   const [locationId, setLocationId] = useState<string>(
     lot?.location_id ?? defaultLocationId ?? EMPTY_VALUE_SENTINEL,
   );
-  const [expiresOn, setExpiresOn] = useState<string>(lot?.expires_on ?? "");
+  const [expiresOn, setExpiresOn] = useState<string>(
+    lot?.expires_on ?? prefill?.expires_on ?? "",
+  );
+  const [brand, setBrand] = useState<string>(
+    lot?.brand ?? prefill?.brand ?? "",
+  );
+  const [barcode, setBarcode] = useState<string>(
+    lot?.barcode ?? prefill?.barcode ?? "",
+  );
+  const [imageUrl] = useState<string>(
+    lot?.image_url ?? prefill?.image_url ?? "",
+  );
+  const [notes, setNotes] = useState<string>(
+    lot?.notes ?? prefill?.notes ?? "",
+  );
+
   const [isFrozen, setIsFrozen] = useState<boolean>(Boolean(lot?.frozen_at));
   const [frozenAt, setFrozenAt] = useState<string>(
     lot?.frozen_at ? lot.frozen_at.slice(0, 10) : todayIso(),
@@ -68,8 +97,7 @@ export function LotForm({
   );
 
   const selectedLocation = locations.find((l) => l.id === locationId) ?? null;
-  const showFreezerFields =
-    isFrozen || selectedLocation?.kind === "freezer";
+  const showFreezerFields = isFrozen || selectedLocation?.kind === "freezer";
 
   async function fetchSuggestion() {
     setError(null);
@@ -80,7 +108,7 @@ export function LotForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: productName,
-          brand: productBrand ?? null,
+          brand: brand || null,
           category: productCategory ?? null,
         }),
       });
@@ -116,13 +144,16 @@ export function LotForm({
       location_id:
         locationId === EMPTY_VALUE_SENTINEL ? null : locationId,
       expires_on: expiresOn || null,
-      frozen_at: showFreezerFields && frozenAt
-        ? new Date(`${frozenAt}T00:00:00`).toISOString()
-        : null,
-      frozen_max_days:
-        showFreezerFields && frozenMaxDays
-          ? Number(frozenMaxDays)
+      frozen_at:
+        showFreezerFields && frozenAt
+          ? new Date(`${frozenAt}T00:00:00`).toISOString()
           : null,
+      frozen_max_days:
+        showFreezerFields && frozenMaxDays ? Number(frozenMaxDays) : null,
+      brand: brand.trim() || null,
+      barcode: barcode.trim() || null,
+      image_url: imageUrl || null,
+      notes: notes.trim() || null,
     };
 
     startTransition(async () => {
@@ -142,7 +173,7 @@ export function LotForm({
   return (
     <div className="rounded-xl border border-border bg-card p-3 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">
+        <h3 className="text-sm font-medium truncate">
           {lot ? "Editar lote" : "Nuevo lote"}
           <span className="text-muted-foreground"> · {productName}</span>
         </h3>
@@ -158,6 +189,40 @@ export function LotForm({
         </Button>
       </div>
 
+      {/* Imagen del producto si hay */}
+      {imageUrl && (
+        <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-2">
+          <div className="relative size-12 rounded-md overflow-hidden bg-background shrink-0">
+            <Image
+              src={imageUrl}
+              alt={brand || productName}
+              fill
+              sizes="48px"
+              className="object-contain"
+            />
+          </div>
+          <div className="text-xs text-muted-foreground min-w-0">
+            <div className="truncate">
+              {brand || "Sin marca"}
+            </div>
+            {barcode && <div className="font-mono truncate">{barcode}</div>}
+          </div>
+        </div>
+      )}
+
+      {onScanClick && !lot && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={onScanClick}
+        >
+          <ScanLine className="size-4" />
+          Escanear código de barras
+        </Button>
+      )}
+
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1.5">
           <Label htmlFor="lot-quantity">Cantidad</Label>
@@ -171,7 +236,6 @@ export function LotForm({
             onChange={(e) => setQuantity(e.target.value)}
           />
         </div>
-
         <div className="space-y-1.5">
           <Label htmlFor="lot-expires">Vence</Label>
           <Input
@@ -204,6 +268,30 @@ export function LotForm({
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="lot-brand">Marca</Label>
+          <Input
+            id="lot-brand"
+            value={brand}
+            onChange={(e) => setBrand(e.target.value)}
+            placeholder="La Serenísima"
+            autoComplete="off"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="lot-barcode">Código de barras</Label>
+          <Input
+            id="lot-barcode"
+            value={barcode}
+            onChange={(e) => setBarcode(e.target.value)}
+            inputMode="numeric"
+            placeholder="779..."
+            autoComplete="off"
+          />
+        </div>
       </div>
 
       <button
@@ -265,7 +353,6 @@ export function LotForm({
               </div>
             </div>
           </div>
-
           {suggestion && (
             <p className="text-xs text-muted-foreground bg-accent/40 border border-border rounded-md px-2 py-1.5">
               <Sparkles className="size-3 inline mr-1 text-primary" />
@@ -282,6 +369,17 @@ export function LotForm({
           )}
         </div>
       )}
+
+      <div className="space-y-1.5">
+        <Label htmlFor="lot-notes">Notas del lote (opcional)</Label>
+        <Input
+          id="lot-notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Compré en oferta, primera vez esta marca, etc."
+          autoComplete="off"
+        />
+      </div>
 
       {error && (
         <p

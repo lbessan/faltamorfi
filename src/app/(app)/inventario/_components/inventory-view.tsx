@@ -12,7 +12,7 @@ import { BarcodeScannerSheet } from "@/components/barcode-scanner";
 import { ProductCard } from "./product-card";
 import { AddProductSheet } from "./add-product-sheet";
 import { ProductDetailSheet } from "./product-detail-sheet";
-import type { ProductFormDefaults } from "./product-form";
+import type { LotPrefill } from "./lot-form";
 
 const ALL_LOCATIONS_VALUE = "__all__";
 const NO_LOCATION_VALUE = "__none__";
@@ -35,7 +35,9 @@ export function InventoryView({
     ALL_LOCATIONS_VALUE,
   );
   const [addOpen, setAddOpen] = useState(false);
-  const [addPrefill, setAddPrefill] = useState<ProductFormDefaults | null>(null);
+  const [addPrefill, setAddPrefill] = useState<LotPrefill | null>(null);
+  const [addSuggestedMatch, setAddSuggestedMatch] =
+    useState<ProductWithLocation | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [selected, setSelected] = useState<ProductWithLocation | null>(null);
   const [lookupPending, startLookup] = useTransition();
@@ -56,9 +58,13 @@ export function InventoryView({
       if (!q) return true;
       return (
         p.name.toLowerCase().includes(q) ||
-        (p.brand ?? "").toLowerCase().includes(q) ||
         (p.category ?? "").toLowerCase().includes(q) ||
-        (p.barcode ?? "").includes(q)
+        // Buscamos también en marca/código de cada lote.
+        p.lots.some(
+          (l) =>
+            (l.brand ?? "").toLowerCase().includes(q) ||
+            (l.image_url == null && false), // no-op para mantener forma
+        )
       );
     });
   }, [products, query, locationFilter]);
@@ -69,13 +75,13 @@ export function InventoryView({
 
   const openAddManual = useCallback(() => {
     setAddPrefill(null);
+    setAddSuggestedMatch(null);
     setAddOpen(true);
   }, []);
 
   const openScanner = useCallback(() => {
     setLookupError(null);
-    // Si el add sheet está abierto cuando piden escanear, lo cerramos
-    // antes — los sheets bottom no se pueden apilar limpiamente.
+    // Si el add sheet está abierto, lo cerramos antes (no podemos anidar sheets).
     setAddOpen(false);
     setSelected(null);
     setScannerOpen(true);
@@ -87,24 +93,39 @@ export function InventoryView({
       if (!barcode) return;
       setScannerOpen(false);
 
-      const existing = products.find((p) => p.barcode === barcode);
-      if (existing) {
-        setSelected(existing);
+      // 1) ¿El barcode ya existe en algún lote del hogar?
+      const existingProduct = products.find((p) =>
+        p.lots.some((l) => l.barcode === barcode),
+      );
+      if (existingProduct) {
+        setSelected(existingProduct);
         return;
       }
 
+      // 2) Lookup OFF + buscar match por nombre
       startLookup(async () => {
-        let prefill: ProductFormDefaults = { barcode };
+        let prefill: LotPrefill = { barcode };
+        let suggested: ProductWithLocation | null = null;
         try {
           const off = await lookupBarcode(barcode);
           if (off) {
             prefill = {
               barcode: off.barcode,
-              name: off.name ?? "",
-              brand: off.brand ?? "",
-              category: off.category ?? "",
+              brand: off.brand,
               image_url: off.imageUrl,
             };
+            // Match heurístico contra los tipos existentes
+            if (off.name) {
+              suggested = findClosestProductMatch(off.name, products);
+            }
+            if (!suggested && off.category) {
+              // Como fallback: matchear por categoría
+              suggested =
+                products.find(
+                  (p) =>
+                    p.category?.toLowerCase() === off.category?.toLowerCase(),
+                ) ?? null;
+            }
           }
         } catch (err) {
           setLookupError(
@@ -114,6 +135,7 @@ export function InventoryView({
           );
         }
         setAddPrefill(prefill);
+        setAddSuggestedMatch(suggested);
         setAddOpen(true);
       });
     },
@@ -132,7 +154,8 @@ export function InventoryView({
             {lowStockCount > 0 && (
               <span className="text-warning-foreground/80">
                 {" · "}
-                <span className="font-medium">{lowStockCount}</span> con stock bajo
+                <span className="font-medium">{lowStockCount}</span> con stock
+                bajo
               </span>
             )}
           </p>
@@ -159,7 +182,7 @@ export function InventoryView({
         <Input
           type="search"
           inputMode="search"
-          placeholder="Buscar por nombre, marca, categoría o código..."
+          placeholder="Buscar por tipo, categoría o marca..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="pl-9"
@@ -197,7 +220,11 @@ export function InventoryView({
         <ul className="flex flex-col gap-2 animate-in fade-in duration-300">
           {filtered.map((p) => (
             <li key={p.id}>
-              <ProductCard product={p} onClick={() => setSelected(p)} />
+              <ProductCard
+                product={p}
+                warningDays={warningDays}
+                onClick={() => setSelected(p)}
+              />
             </li>
           ))}
         </ul>
@@ -217,10 +244,14 @@ export function InventoryView({
         open={addOpen}
         onOpenChange={(open) => {
           setAddOpen(open);
-          if (!open) setAddPrefill(null);
+          if (!open) {
+            setAddPrefill(null);
+            setAddSuggestedMatch(null);
+          }
         }}
         locations={locations}
         prefill={addPrefill}
+        suggestedMatch={addSuggestedMatch}
         onScanClick={openScanner}
       />
 
@@ -238,6 +269,47 @@ export function InventoryView({
       />
     </div>
   );
+}
+
+// ----------------------------------------------------------------------------
+// Match heurístico de nombres.
+//
+// Estrategia simple: comparar tokens. Si el producto existente comparte 1+
+// tokens significativos (>= 4 chars) con el nombre de OFF, lo consideramos
+// match. Devuelve el de mejor score.
+// ----------------------------------------------------------------------------
+
+function findClosestProductMatch(
+  offName: string,
+  products: ProductWithLocation[],
+): ProductWithLocation | null {
+  const offTokens = tokenize(offName);
+  if (offTokens.length === 0) return null;
+
+  let best: { product: ProductWithLocation; score: number } | null = null;
+  for (const p of products) {
+    const pTokens = tokenize(p.name);
+    if (pTokens.length === 0) continue;
+    const shared = pTokens.filter((t) => offTokens.includes(t)).length;
+    if (shared === 0) continue;
+    // Bonus si el nombre del producto está completamente contenido en el de OFF.
+    const bonus = offName.toLowerCase().includes(p.name.toLowerCase()) ? 2 : 0;
+    const score = shared + bonus;
+    if (!best || score > best.score) {
+      best = { product: p, score };
+    }
+  }
+
+  return best && best.score >= 1 ? best.product : null;
+}
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // quita acentos
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 4);
 }
 
 function EmptyState({

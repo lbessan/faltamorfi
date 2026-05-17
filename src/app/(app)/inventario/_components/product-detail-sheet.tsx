@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
+  CalendarClock,
   Loader2,
   Minus,
   Package2,
   Pencil,
   Plus,
+  Snowflake,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,13 +30,15 @@ import {
 } from "@/lib/db/stock-items";
 import { createClient } from "@/lib/supabase/client";
 import type { ProductWithLocation } from "@/lib/db/products";
+import { lookupBarcode } from "@/lib/openfoodfacts";
+import { BarcodeScannerSheet } from "@/components/barcode-scanner";
 import {
   consumeProductAction,
   deleteProductAction,
   updateProductAction,
 } from "../actions";
 import { LotCard } from "./lot-card";
-import { LotForm } from "./lot-form";
+import { LotForm, type LotPrefill } from "./lot-form";
 import { ProductForm } from "./product-form";
 
 type Props = {
@@ -64,10 +69,7 @@ export function ProductDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="max-h-[92vh] overflow-y-auto"
-      >
+      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto">
         {product && mode === "view" && (
           <ViewMode
             product={product}
@@ -83,7 +85,7 @@ export function ProductDetailSheet({
             <SheetHeader>
               <SheetTitle>Editar producto</SheetTitle>
               <SheetDescription>
-                Datos generales del producto. Los lotes se gestionan aparte.
+                Datos del tipo. La marca, código y vto se editan en cada lote.
               </SheetDescription>
             </SheetHeader>
             <div className="px-4 pb-6">
@@ -124,9 +126,11 @@ function ViewMode({
   const [lotsError, setLotsError] = useState<string | null>(null);
   const [showAddLot, setShowAddLot] = useState(false);
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [lotPrefill, setLotPrefill] = useState<LotPrefill | null>(null);
+  const [lookupPending, startLookup] = useTransition();
 
-  // Reset cuando cambia el producto. Patrón "state derived from props" de
-  // React 19 — los setState ocurren durante el render, no en useEffect.
+  // Reset cuando cambia el producto. Patrón "state derived from props".
   const productKey = `${product.id}-${product.updated_at}`;
   const [previousKey, setPreviousKey] = useState(productKey);
   if (previousKey !== productKey) {
@@ -135,9 +139,11 @@ function ViewMode({
     setLotsError(null);
     setShowAddLot(false);
     setEditingLotId(null);
+    setLotPrefill(null);
+    setScannerOpen(false);
   }
 
-  // Refetch lots cada vez que abre el sheet o que el product cambia.
+  // Refetch lots cada vez que cambia el producto.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -152,7 +158,6 @@ function ViewMode({
           );
       }
     })();
-
     return () => {
       cancelled = true;
     };
@@ -175,7 +180,8 @@ function ViewMode({
         }
       });
     } else {
-      // Sumar = abrir el form de nuevo lote
+      // Sumar = abrir el form de nuevo lote (con prefill limpio)
+      setLotPrefill(null);
       setShowAddLot(true);
     }
   }
@@ -207,7 +213,38 @@ function ViewMode({
   function closeLotForm() {
     setShowAddLot(false);
     setEditingLotId(null);
+    setLotPrefill(null);
   }
+
+  function openScanner() {
+    setScannerOpen(true);
+  }
+
+  function handleScanned(rawBarcode: string) {
+    const barcode = rawBarcode.trim();
+    if (!barcode) return;
+    setScannerOpen(false);
+    startLookup(async () => {
+      let prefill: LotPrefill = { barcode };
+      try {
+        const off = await lookupBarcode(barcode);
+        if (off) {
+          prefill = {
+            barcode: off.barcode,
+            brand: off.brand,
+            image_url: off.imageUrl,
+          };
+        }
+      } catch {
+        // Si falla OFF, seguimos con solo el barcode.
+      }
+      setLotPrefill(prefill);
+      setShowAddLot(true);
+    });
+  }
+
+  // Mostrar info "inline" (marca/vto) solo si hay un único lote.
+  const inlineLot = lots && lots.length === 1 ? lots[0] : null;
 
   return (
     <>
@@ -216,14 +253,27 @@ function ViewMode({
           {product.name}
         </SheetTitle>
         <SheetDescription>
-          {[product.brand, product.category].filter(Boolean).join(" · ") ||
-            "Sin marca ni categoría"}
+          {[product.category, `${formatQuantity(qty)} ${unitLabel}`]
+            .filter(Boolean)
+            .join(" · ")}
         </SheetDescription>
       </SheetHeader>
 
       <div className="px-4 pb-6 space-y-4">
-        <div className="rounded-xl border border-border bg-card p-4 flex items-center justify-between gap-3">
-          <div>
+        {/* Card principal de stock con +/- */}
+        <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
+          {inlineLot && inlineLot.image_url && (
+            <div className="relative size-16 rounded-lg overflow-hidden bg-muted shrink-0">
+              <Image
+                src={inlineLot.image_url}
+                alt={inlineLot.brand ?? product.name}
+                fill
+                sizes="64px"
+                className="object-contain"
+              />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
             <div className="text-xs text-muted-foreground">Stock total</div>
             <div className="text-2xl font-heading font-bold tabular-nums">
               {formatQuantity(qty)}{" "}
@@ -232,11 +282,28 @@ function ViewMode({
               </span>
             </div>
             <div className="text-xs text-muted-foreground">
-              umbral mínimo: {formatQuantity(threshold)} {unitLabel}
+              mínimo: {formatQuantity(threshold)} {unitLabel}
             </div>
+            {inlineLot && (inlineLot.brand || inlineLot.expires_on) && (
+              <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2">
+                {inlineLot.brand && <span>{inlineLot.brand}</span>}
+                {inlineLot.expires_on && (
+                  <span className="inline-flex items-center gap-1">
+                    <CalendarClock className="size-3" />
+                    {formatLongDate(inlineLot.expires_on)}
+                  </span>
+                )}
+                {inlineLot.frozen_at && (
+                  <span className="inline-flex items-center gap-1 text-primary">
+                    <Snowflake className="size-3" />
+                    Freezado
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               type="button"
               variant="outline"
@@ -282,16 +349,29 @@ function ViewMode({
         <section className="space-y-2">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Lotes
+              {inlineLot ? "Detalle del lote" : "Lotes"}
+              {lots && lots.length > 1 && (
+                <span className="text-muted-foreground/60 ml-1 normal-case">
+                  ({lots.length})
+                </span>
+              )}
             </h2>
             {!showAddLot && !editingLotId && (
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => setShowAddLot(true)}
+                onClick={() => {
+                  setLotPrefill(null);
+                  setShowAddLot(true);
+                }}
+                disabled={lookupPending}
               >
-                <Plus className="size-3.5" />
+                {lookupPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Plus className="size-3.5" />
+                )}
                 Agregar
               </Button>
             )}
@@ -299,12 +379,14 @@ function ViewMode({
 
           {showAddLot && (
             <LotForm
+              key={`new-${lotPrefill?.barcode ?? "manual"}`}
               productId={product.id}
               productName={product.name}
-              productBrand={product.brand}
               productCategory={product.category}
               locations={locations}
               defaultLocationId={product.default_location_id}
+              prefill={lotPrefill ?? undefined}
+              onScanClick={openScanner}
               onClose={closeLotForm}
             />
           )}
@@ -339,7 +421,6 @@ function ViewMode({
                     <LotForm
                       productId={product.id}
                       productName={product.name}
-                      productBrand={product.brand}
                       productCategory={product.category}
                       locations={locations}
                       lot={lot}
@@ -366,10 +447,7 @@ function ViewMode({
 
         <Separator />
 
-        {product.barcode && (
-          <DetailRow label="Código de barras" value={product.barcode} mono />
-        )}
-        {product.notes && <DetailRow label="Notas" value={product.notes} />}
+        {product.notes && <DetailRow label="Notas del tipo" value={product.notes} />}
 
         <Button
           type="button"
@@ -382,23 +460,23 @@ function ViewMode({
           Eliminar producto
         </Button>
       </div>
+
+      <BarcodeScannerSheet
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onDetected={handleScanned}
+        title="Escanear lote"
+        description={`Apuntá la cámara al código del ${product.name.toLowerCase()}.`}
+      />
     </>
   );
 }
 
-function DetailRow({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
+function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between items-baseline gap-3">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={mono ? "font-mono text-sm" : "text-sm"}>{value}</span>
+      <span className="text-sm">{value}</span>
     </div>
   );
 }
@@ -406,4 +484,17 @@ function DetailRow({
 function formatQuantity(n: number): string {
   if (Number.isInteger(n)) return String(n);
   return n.toFixed(2).replace(/\.?0+$/, "");
+}
+
+function formatLongDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const dayMs = 24 * 60 * 60 * 1000;
+  const days = Math.floor((d.getTime() - now.getTime()) / dayMs);
+  if (days === 0) return "Vence hoy";
+  if (days === 1) return "Vence mañana";
+  if (days < 0) return `Vencido hace ${Math.abs(days)} día${Math.abs(days) === 1 ? "" : "s"}`;
+  if (days <= 14) return `Vence en ${days} días`;
+  return `Vence ${d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}`;
 }

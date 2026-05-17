@@ -6,9 +6,27 @@ import type {
   UpdateTable,
 } from "@/lib/database.types";
 
+export type LotSummary = {
+  id: string;
+  quantity: number;
+  expires_on: string | null;
+  frozen_at: string | null;
+  frozen_max_days: number | null;
+  brand: string | null;
+  barcode: string | null;
+  image_url: string | null;
+};
+
 export type ProductWithLocation = Product & {
   location: { id: string; name: string; icon: string | null } | null;
+  lots: LotSummary[];
 };
+
+const PRODUCT_SELECT = `
+  *,
+  location:locations!products_default_location_id_fkey(id, name, icon),
+  lots:stock_items(id, quantity, expires_on, frozen_at, frozen_max_days, brand, barcode, image_url)
+`;
 
 export async function listProducts(
   supabase: SupabaseClient<Database>,
@@ -16,7 +34,7 @@ export async function listProducts(
 ): Promise<ProductWithLocation[]> {
   const { data, error } = await supabase
     .from("products")
-    .select("*, location:locations!products_default_location_id_fkey(id, name, icon)")
+    .select(PRODUCT_SELECT)
     .eq("household_id", householdId)
     .order("name", { ascending: true });
 
@@ -30,7 +48,7 @@ export async function getProduct(
 ): Promise<ProductWithLocation | null> {
   const { data, error } = await supabase
     .from("products")
-    .select("*, location:locations!products_default_location_id_fkey(id, name, icon)")
+    .select(PRODUCT_SELECT)
     .eq("id", productId)
     .maybeSingle();
 
@@ -74,4 +92,27 @@ export async function deleteProduct(
 ): Promise<void> {
   const { error } = await supabase.from("products").delete().eq("id", productId);
   if (error) throw error;
+}
+
+/**
+ * Busca productos por código de barras en sus lotes. Devuelve el primero
+ * que matchee (un mismo barcode puede aparecer en varios lotes — son del
+ * mismo SKU, todos apuntan al mismo producto tipo).
+ */
+export async function findProductByBarcode(
+  supabase: SupabaseClient<Database>,
+  householdId: string,
+  barcode: string,
+): Promise<ProductWithLocation | null> {
+  const { data: items, error } = await supabase
+    .from("stock_items")
+    .select("product_id, products!inner(household_id)")
+    .eq("barcode", barcode)
+    .eq("products.household_id", householdId)
+    .limit(1);
+
+  if (error) throw error;
+  if (!items?.length) return null;
+
+  return getProduct(supabase, items[0].product_id);
 }

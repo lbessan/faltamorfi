@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   CalendarClock,
   Loader2,
@@ -42,8 +43,25 @@ export function LotCard({ lot, unit, warningDays, onEdit }: Props) {
   return (
     <div className="rounded-xl border border-border bg-card p-3 space-y-2">
       <div className="flex items-start gap-3">
+        {/* Imagen */}
+        <div className="relative size-12 rounded-lg overflow-hidden bg-muted shrink-0">
+          {lot.image_url ? (
+            <Image
+              src={lot.image_url}
+              alt={lot.brand ?? "Lote"}
+              fill
+              sizes="48px"
+              className="object-contain"
+            />
+          ) : (
+            <span className="absolute inset-0 flex items-center justify-center text-xs font-heading font-bold text-muted-foreground">
+              {(lot.brand ?? "·").charAt(0).toUpperCase()}
+            </span>
+          )}
+        </div>
+
         <div className="flex-1 min-w-0 space-y-0.5">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold tabular-nums">
               {formatQty(Number(lot.quantity))}{" "}
               <span className="text-sm font-normal text-muted-foreground">
@@ -52,6 +70,20 @@ export function LotCard({ lot, unit, warningDays, onEdit }: Props) {
             </span>
             <ExpirationBadge status={status} />
           </div>
+
+          {(lot.brand || lot.barcode) && (
+            <div className="text-sm truncate">
+              {lot.brand && <span>{lot.brand}</span>}
+              {lot.brand && lot.barcode && (
+                <span className="text-muted-foreground"> · </span>
+              )}
+              {lot.barcode && (
+                <span className="text-xs font-mono text-muted-foreground">
+                  {lot.barcode}
+                </span>
+              )}
+            </div>
+          )}
 
           <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
             {lot.location && (
@@ -199,7 +231,8 @@ function formatRelativeDate(d: Date): string {
   const days = Math.floor((d.getTime() - now.getTime()) / dayMs);
   if (days === 0) return "Vence hoy";
   if (days === 1) return "Vence mañana";
-  if (days < 0) return `Vencido hace ${Math.abs(days)} día${Math.abs(days) === 1 ? "" : "s"}`;
+  if (days < 0)
+    return `Vencido hace ${Math.abs(days)} día${Math.abs(days) === 1 ? "" : "s"}`;
   if (days <= 14) return `En ${days} días`;
   return d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
 }

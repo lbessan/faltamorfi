@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { requireCurrentHousehold } from "@/lib/db/household";
+import {
+  getCurrentHouseholdRole,
+  requireCurrentHousehold,
+} from "@/lib/db/household";
 import { listLocations } from "@/lib/db/locations";
 import { listProducts } from "@/lib/db/products";
 import { getOrCreateUserPreferences } from "@/lib/db/preferences";
+import { canEdit } from "@/lib/database.types";
 import { InventoryView } from "./_components/inventory-view";
 
 export const metadata: Metadata = {
@@ -18,10 +22,11 @@ export default async function InventoryPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [locations, products, prefs] = await Promise.all([
+  const [locations, products, prefs, role] = await Promise.all([
     listLocations(supabase, household.id),
     listProducts(supabase, household.id),
     user ? getOrCreateUserPreferences(supabase, user.id) : Promise.resolve(null),
+    getCurrentHouseholdRole(supabase, household.id),
   ]);
 
   return (
@@ -30,6 +35,7 @@ export default async function InventoryPage() {
       locations={locations}
       products={products}
       warningDays={prefs?.default_expiry_warning_days ?? 3}
+      canEdit={canEdit(role)}
     />
   );
 }

@@ -15,6 +15,7 @@ type Props = {
   productsInList: Set<string>;
   shoppingItems: ShoppingListItemWithProduct[];
   locations: Location[];
+  canEdit: boolean;
 };
 
 export function ComprasView({
@@ -23,6 +24,7 @@ export function ComprasView({
   productsInList,
   shoppingItems,
   locations,
+  canEdit,
 }: Props) {
   const pendingCount = shoppingItems.filter((i) => i.state === "pending").length;
   const checkedCount = shoppingItems.filter((i) => i.state === "checked").length;
@@ -73,6 +75,7 @@ export function ComprasView({
             lowStock={lowStock}
             productsInList={productsInList}
             locations={locations}
+            canEdit={canEdit}
           />
         </TabsContent>
 
@@ -80,9 +83,17 @@ export function ComprasView({
           <ShoppingListView
             items={shoppingItems}
             locations={locations}
+            canEdit={canEdit}
           />
         </TabsContent>
       </Tabs>
+
+      {!canEdit && (
+        <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          Estás en modo solo lectura. Para modificar la lista o cargar
+          productos pedile al dueño del hogar que te cambie el rol.
+        </div>
+      )}
     </div>
   );
 }

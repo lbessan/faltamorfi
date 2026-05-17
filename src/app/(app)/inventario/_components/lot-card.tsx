@@ -21,7 +21,8 @@ type Props = {
   lot: StockItemWithLocation;
   unit: string;
   warningDays: number;
-  onEdit: () => void;
+  /** Si es null, el lote es read-only (no se muestran botones de editar/eliminar). */
+  onEdit: (() => void) | null;
 };
 
 export function LotCard({ lot, unit, warningDays, onEdit }: Props) {
@@ -108,30 +109,32 @@ export function LotCard({ lot, unit, warningDays, onEdit }: Props) {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onEdit}
-            className="size-8"
-            aria-label="Editar lote"
-            disabled={pending}
-          >
-            <Pencil className="size-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setConfirmDelete((v) => !v)}
-            className="size-8 text-destructive hover:text-destructive"
-            aria-label="Eliminar lote"
-            disabled={pending}
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
-        </div>
+        {onEdit && (
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={onEdit}
+              className="size-8"
+              aria-label="Editar lote"
+              disabled={pending}
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setConfirmDelete((v) => !v)}
+              className="size-8 text-destructive hover:text-destructive"
+              aria-label="Eliminar lote"
+              disabled={pending}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {confirmDelete && (

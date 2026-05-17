@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { requireCurrentHousehold } from "@/lib/db/household";
+import {
+  getCurrentHouseholdRole,
+  requireCurrentHousehold,
+} from "@/lib/db/household";
 import { listLocations } from "@/lib/db/locations";
 import { listProducts } from "@/lib/db/products";
 import { listShoppingItems } from "@/lib/db/shopping";
+import { canEdit } from "@/lib/database.types";
 import { ComprasView } from "./_components/compras-view";
 
 export const metadata: Metadata = {
@@ -13,10 +17,11 @@ export const metadata: Metadata = {
 export default async function ComprasPage() {
   const supabase = await createClient();
   const household = await requireCurrentHousehold(supabase);
-  const [locations, products, shoppingItems] = await Promise.all([
+  const [locations, products, shoppingItems, role] = await Promise.all([
     listLocations(supabase, household.id),
     listProducts(supabase, household.id),
     listShoppingItems(supabase, household.id, ["pending", "checked"]),
+    getCurrentHouseholdRole(supabase, household.id),
   ]);
 
   const restock = products.filter(
@@ -43,6 +48,7 @@ export default async function ComprasPage() {
       productsInList={productsInList}
       shoppingItems={shoppingItems}
       locations={locations}
+      canEdit={canEdit(role)}
     />
   );
 }

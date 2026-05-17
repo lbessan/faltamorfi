@@ -47,9 +47,10 @@ import {
 type Props = {
   items: ShoppingListItemWithProduct[];
   locations: Location[];
+  canEdit: boolean;
 };
 
-export function ShoppingListView({ items }: Props) {
+export function ShoppingListView({ items, canEdit }: Props) {
   const grouped = useMemo(() => groupByDepartment(items), [items]);
   const pending = items.filter((i) => i.state === "pending");
   const checked = items.filter((i) => i.state === "checked");
@@ -62,10 +63,11 @@ export function ShoppingListView({ items }: Props) {
   return (
     <div className="space-y-4">
       {items.length === 0 ? (
-        <EmptyState onAdd={() => setAddOpen(true)} />
+        <EmptyState canEdit={canEdit} onAdd={() => setAddOpen(true)} />
       ) : (
         <>
-          {/* Acciones superiores */}
+          {/* Acciones superiores (solo editores) */}
+          {canEdit && (
           <div className="grid grid-cols-2 gap-2">
             {pending.length > 0 ? (
               <Link
@@ -98,6 +100,7 @@ export function ShoppingListView({ items }: Props) {
               </Button>
             )}
           </div>
+          )}
 
           <div className="space-y-4">
             {grouped.map(({ department, items: deptItems }) => (
@@ -105,6 +108,7 @@ export function ShoppingListView({ items }: Props) {
                 key={department}
                 department={department}
                 items={deptItems}
+                canEdit={canEdit}
                 onEdit={setEditing}
               />
             ))}
@@ -112,17 +116,19 @@ export function ShoppingListView({ items }: Props) {
         </>
       )}
 
-      {/* FAB para item custom */}
-      <Button
-        type="button"
-        size="lg"
-        variant={items.length === 0 ? "default" : "outline"}
-        onClick={() => setAddOpen(true)}
-        className="w-full"
-      >
-        <ListPlus className="size-4" />
-        Agregar item suelto
-      </Button>
+      {/* FAB para item custom (solo editores) */}
+      {canEdit && (
+        <Button
+          type="button"
+          size="lg"
+          variant={items.length === 0 ? "default" : "outline"}
+          onClick={() => setAddOpen(true)}
+          className="w-full"
+        >
+          <ListPlus className="size-4" />
+          Agregar item suelto
+        </Button>
+      )}
 
       <AddCustomItemSheet open={addOpen} onOpenChange={setAddOpen} />
 
@@ -136,7 +142,13 @@ export function ShoppingListView({ items }: Props) {
 
 // ----------------------------------------------------------------------------
 
-function EmptyState({ onAdd }: { onAdd: () => void }) {
+function EmptyState({
+  canEdit,
+  onAdd,
+}: {
+  canEdit: boolean;
+  onAdd: () => void;
+}) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-16 px-4 text-center">
       <div className="size-20 rounded-full bg-primary/10 flex items-center justify-center">
@@ -152,10 +164,12 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
           necesites, o agregá un item suelto.
         </p>
       </div>
-      <Button onClick={onAdd} size="lg">
-        <ListPlus className="size-4" />
-        Agregar item suelto
-      </Button>
+      {canEdit && (
+        <Button onClick={onAdd} size="lg">
+          <ListPlus className="size-4" />
+          Agregar item suelto
+        </Button>
+      )}
     </div>
   );
 }
@@ -163,10 +177,12 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 function DepartmentBlock({
   department,
   items,
+  canEdit,
   onEdit,
 }: {
   department: Department;
   items: ShoppingListItemWithProduct[];
+  canEdit: boolean;
   onEdit: (item: ShoppingListItemWithProduct) => void;
 }) {
   return (
@@ -185,7 +201,11 @@ function DepartmentBlock({
       <ul className="space-y-1.5">
         {items.map((item) => (
           <li key={item.id}>
-            <ListItemRow item={item} onEdit={() => onEdit(item)} />
+            <ListItemRow
+              item={item}
+              canEdit={canEdit}
+              onEdit={() => onEdit(item)}
+            />
           </li>
         ))}
       </ul>
@@ -195,9 +215,11 @@ function DepartmentBlock({
 
 function ListItemRow({
   item,
+  canEdit,
   onEdit,
 }: {
   item: ShoppingListItemWithProduct;
+  canEdit: boolean;
   onEdit: () => void;
 }) {
   const router = useRouter();
@@ -228,19 +250,31 @@ function ListItemRow({
           : "border-border bg-card"
       }`}
     >
-      <button
-        type="button"
-        onClick={toggleCheck}
-        disabled={pending}
-        className={`size-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
-          checked
-            ? "bg-primary border-primary text-primary-foreground"
-            : "border-muted-foreground/40 hover:border-primary"
-        }`}
-        aria-label={checked ? "Desmarcar" : "Marcar como comprado"}
-      >
-        {checked && <Check className="size-4" strokeWidth={3} />}
-      </button>
+      {canEdit ? (
+        <button
+          type="button"
+          onClick={toggleCheck}
+          disabled={pending}
+          className={`size-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+            checked
+              ? "bg-primary border-primary text-primary-foreground"
+              : "border-muted-foreground/40 hover:border-primary"
+          }`}
+          aria-label={checked ? "Desmarcar" : "Marcar como comprado"}
+        >
+          {checked && <Check className="size-4" strokeWidth={3} />}
+        </button>
+      ) : (
+        <div
+          className={`size-6 rounded-md border-2 flex items-center justify-center shrink-0 ${
+            checked
+              ? "bg-primary border-primary text-primary-foreground"
+              : "border-muted-foreground/30"
+          }`}
+        >
+          {checked && <Check className="size-4" strokeWidth={3} />}
+        </div>
+      )}
 
       {iconName && (
         <DynamicIcon
@@ -270,30 +304,32 @@ function ListItemRow({
         )}
       </div>
 
-      <div className="flex items-center gap-0.5 shrink-0">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onEdit}
-          className="size-7"
-          disabled={pending}
-          aria-label="Editar"
-        >
-          <Pencil className="size-3" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={remove}
-          className="size-7 text-destructive hover:text-destructive"
-          disabled={pending}
-          aria-label="Quitar"
-        >
-          <Trash2 className="size-3" />
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onEdit}
+            className="size-7"
+            disabled={pending}
+            aria-label="Editar"
+          >
+            <Pencil className="size-3" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={remove}
+            className="size-7 text-destructive hover:text-destructive"
+            disabled={pending}
+            aria-label="Quitar"
+          >
+            <Trash2 className="size-3" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

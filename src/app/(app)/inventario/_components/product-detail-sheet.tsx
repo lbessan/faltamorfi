@@ -45,6 +45,7 @@ type Props = {
   product: ProductWithLocation | null;
   locations: Location[];
   warningDays: number;
+  canEdit: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
@@ -54,6 +55,7 @@ export function ProductDetailSheet({
   product,
   locations,
   warningDays,
+  canEdit,
   onOpenChange,
 }: Props) {
   const [mode, setMode] = useState<Mode>("view");
@@ -75,6 +77,7 @@ export function ProductDetailSheet({
             product={product}
             locations={locations}
             warningDays={warningDays}
+            canEdit={canEdit}
             onEditProduct={() => setMode("editProduct")}
             onClose={() => handleOpenChange(false)}
           />
@@ -110,12 +113,14 @@ function ViewMode({
   product,
   locations,
   warningDays,
+  canEdit,
   onEditProduct,
   onClose,
 }: {
   product: ProductWithLocation;
   locations: Location[];
   warningDays: number;
+  canEdit: boolean;
   onEditProduct: () => void;
   onClose: () => void;
 }) {
@@ -303,45 +308,49 @@ function ViewMode({
             )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => adjust(-step)}
-              disabled={pending || qty <= 0}
-              aria-label="Consumir"
-            >
-              <Minus className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => adjust(step)}
-              disabled={pending}
-              aria-label="Sumar lote"
-            >
-              <Plus className="size-4" />
-            </Button>
-          </div>
+          {canEdit && (
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => adjust(-step)}
+                disabled={pending || qty <= 0}
+                aria-label="Consumir"
+              >
+                <Minus className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => adjust(step)}
+                disabled={pending}
+                aria-label="Sumar lote"
+              >
+                <Plus className="size-4" />
+              </Button>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={consumeAll}
-            disabled={pending || qty <= 0}
-          >
-            {pending && <Loader2 className="size-4 animate-spin" />}
-            Consumir todo
-          </Button>
-          <Button type="button" variant="secondary" onClick={onEditProduct}>
-            <Pencil className="size-4" />
-            Editar
-          </Button>
-        </div>
+        {canEdit && (
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={consumeAll}
+              disabled={pending || qty <= 0}
+            >
+              {pending && <Loader2 className="size-4 animate-spin" />}
+              Consumir todo
+            </Button>
+            <Button type="button" variant="secondary" onClick={onEditProduct}>
+              <Pencil className="size-4" />
+              Editar
+            </Button>
+          </div>
+        )}
 
         <Separator />
 
@@ -356,7 +365,7 @@ function ViewMode({
                 </span>
               )}
             </h2>
-            {!showAddLot && !editingLotId && (
+            {canEdit && !showAddLot && !editingLotId && (
               <Button
                 type="button"
                 size="sm"
@@ -433,10 +442,14 @@ function ViewMode({
                       lot={lot}
                       unit={product.unit}
                       warningDays={warningDays}
-                      onEdit={() => {
-                        setShowAddLot(false);
-                        setEditingLotId(lot.id);
-                      }}
+                      onEdit={
+                        canEdit
+                          ? () => {
+                              setShowAddLot(false);
+                              setEditingLotId(lot.id);
+                            }
+                          : null
+                      }
                     />
                   </li>
                 ),
@@ -449,16 +462,18 @@ function ViewMode({
 
         {product.notes && <DetailRow label="Notas del tipo" value={product.notes} />}
 
-        <Button
-          type="button"
-          variant="ghost"
-          className="w-full text-destructive hover:text-destructive"
-          onClick={handleDelete}
-          disabled={pending}
-        >
-          <Trash2 className="size-4" />
-          Eliminar producto
-        </Button>
+        {canEdit && (
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full text-destructive hover:text-destructive"
+            onClick={handleDelete}
+            disabled={pending}
+          >
+            <Trash2 className="size-4" />
+            Eliminar producto
+          </Button>
+        )}
       </div>
 
       <BarcodeScannerSheet

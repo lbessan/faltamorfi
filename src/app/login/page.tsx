@@ -12,7 +12,17 @@ export const metadata: Metadata = {
   title: "Iniciar sesión",
 };
 
-export default function LoginPage() {
+type SearchParams = Promise<{ next?: string }>;
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const params = await searchParams;
+  const next =
+    params.next && params.next.startsWith("/") ? params.next : undefined;
+
   return (
     <main className="flex-1 relative flex items-center justify-center p-6 overflow-hidden">
       {/* Blobs decorativos de fondo, sutiles y filtrados */}
@@ -43,7 +53,7 @@ export default function LoginPage() {
           </p>
         </CardHeader>
         <CardContent>
-          <LoginForm />
+          <LoginForm next={next} />
         </CardContent>
       </Card>
     </main>

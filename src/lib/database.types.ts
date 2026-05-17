@@ -42,19 +42,19 @@ export type Database = {
         Row: {
           household_id: string;
           user_id: string;
-          role: "owner" | "member";
+          role: "owner" | "member" | "viewer";
           joined_at: string;
         };
         Insert: {
           household_id: string;
           user_id: string;
-          role?: "owner" | "member";
+          role?: "owner" | "member" | "viewer";
           joined_at?: string;
         };
         Update: {
           household_id?: string;
           user_id?: string;
-          role?: "owner" | "member";
+          role?: "owner" | "member" | "viewer";
           joined_at?: string;
         };
         Relationships: [
@@ -265,6 +265,52 @@ export type Database = {
           },
         ];
       };
+      household_invitations: {
+        Row: {
+          id: string;
+          household_id: string;
+          token: string;
+          code: string;
+          role: "member" | "viewer";
+          created_by: string | null;
+          created_at: string;
+          expires_at: string;
+          accepted_at: string | null;
+          accepted_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          token: string;
+          code: string;
+          role?: "member" | "viewer";
+          created_by?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          household_id?: string;
+          token?: string;
+          code?: string;
+          role?: "member" | "viewer";
+          created_by?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "household_invitations_household_id_fkey";
+            columns: ["household_id"];
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       shopping_list_items: {
         Row: {
           id: string;
@@ -361,6 +407,22 @@ export type Database = {
         Args: { target_household_id: string };
         Returns: number;
       };
+      get_household_role: {
+        Args: { target_household_id: string };
+        Returns: string | null;
+      };
+      is_household_owner: {
+        Args: { target_household_id: string };
+        Returns: boolean;
+      };
+      is_household_editor: {
+        Args: { target_household_id: string };
+        Returns: boolean;
+      };
+      accept_household_invitation: {
+        Args: { invitation_lookup: string };
+        Returns: { household_id: string; role: string }[];
+      };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
@@ -384,6 +446,29 @@ export type ConsumptionLog = Tables<"consumption_log">;
 export type StockItem = Tables<"stock_items">;
 export type UserPreferences = Tables<"user_preferences">;
 export type ShoppingListItem = Tables<"shopping_list_items">;
+export type HouseholdInvitation = Tables<"household_invitations">;
+
+export type HouseholdRole = "owner" | "member" | "viewer";
+
+export const ROLE_LABELS: Record<HouseholdRole, string> = {
+  owner: "Dueño",
+  member: "Miembro",
+  viewer: "Solo lectura",
+};
+
+export const ROLE_DESCRIPTIONS: Record<HouseholdRole, string> = {
+  owner: "Puede invitar, cambiar roles, renombrar el hogar y editar todo.",
+  member: "Puede agregar productos, lotes y manejar la lista de compras.",
+  viewer: "Puede ver el inventario y la lista pero no editar nada.",
+};
+
+export function canEdit(role: HouseholdRole | null | undefined): boolean {
+  return role === "owner" || role === "member";
+}
+
+export function isOwner(role: HouseholdRole | null | undefined): boolean {
+  return role === "owner";
+}
 
 export const LOCATION_KINDS = [
   "general",

@@ -10,7 +10,7 @@ import { signInWithMagicLink, type LoginState } from "./actions";
 
 const INITIAL_STATE: LoginState = { status: "idle" };
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   const [state, formAction, isPending] = useActionState(
     signInWithMagicLink,
     INITIAL_STATE,
@@ -26,10 +26,12 @@ export function LoginForm() {
     setGooglePending(true);
     try {
       const supabase = createClient();
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      if (next) callbackUrl.searchParams.set("next", next);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: callbackUrl.toString(),
         },
       });
       if (error) {
@@ -81,6 +83,7 @@ export function LoginForm() {
       </div>
 
       <form action={formAction} className="space-y-4">
+        {next && <input type="hidden" name="next" value={next} />}
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input

@@ -30,6 +30,7 @@ type Props = {
   locations: Location[];
   products: ProductWithLocation[];
   warningDays: number;
+  canEdit: boolean;
 };
 
 export function InventoryView({
@@ -37,6 +38,7 @@ export function InventoryView({
   locations,
   products,
   warningDays,
+  canEdit,
 }: Props) {
   const [query, setQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState<string>(
@@ -168,22 +170,31 @@ export function InventoryView({
             )}
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={openScanner}
-          disabled={lookupPending}
-          aria-label="Escanear código"
-          className="shrink-0 size-11"
-        >
-          {lookupPending ? (
-            <Loader2 className="size-5 animate-spin" />
-          ) : (
-            <ScanLine className="size-5" />
-          )}
-        </Button>
+        {canEdit && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={openScanner}
+            disabled={lookupPending}
+            aria-label="Escanear código"
+            className="shrink-0 size-11"
+          >
+            {lookupPending ? (
+              <Loader2 className="size-5 animate-spin" />
+            ) : (
+              <ScanLine className="size-5" />
+            )}
+          </Button>
+        )}
       </div>
+
+      {!canEdit && (
+        <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          Estás en modo solo lectura. Para editar pedile al dueño del hogar
+          que te cambie el rol.
+        </div>
+      )}
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
@@ -221,6 +232,7 @@ export function InventoryView({
       {grouped.length === 0 ? (
         <EmptyState
           hasAnyProducts={products.some((p) => Number(p.quantity) > 0)}
+          canEdit={canEdit}
           onAdd={openAddManual}
           onScan={openScanner}
         />
@@ -255,15 +267,17 @@ export function InventoryView({
         </div>
       )}
 
-      <Button
-        type="button"
-        size="lg"
-        className="fixed bottom-20 right-4 size-14 rounded-full shadow-xl shadow-primary/30 z-10 hover:scale-105 active:scale-95 transition-transform"
-        onClick={openAddManual}
-        aria-label="Agregar producto"
-      >
-        <Plus className="size-6" />
-      </Button>
+      {canEdit && (
+        <Button
+          type="button"
+          size="lg"
+          className="fixed bottom-20 right-4 size-14 rounded-full shadow-xl shadow-primary/30 z-10 hover:scale-105 active:scale-95 transition-transform"
+          onClick={openAddManual}
+          aria-label="Agregar producto"
+        >
+          <Plus className="size-6" />
+        </Button>
+      )}
 
       <AddProductSheet
         open={addOpen}
@@ -284,6 +298,7 @@ export function InventoryView({
         product={selected}
         locations={locations}
         warningDays={warningDays}
+        canEdit={canEdit}
         onOpenChange={(open) => !open && setSelected(null)}
       />
 
@@ -349,10 +364,12 @@ function tokenize(text: string): string[] {
 
 function EmptyState({
   hasAnyProducts,
+  canEdit,
   onAdd,
   onScan,
 }: {
   hasAnyProducts: boolean;
+  canEdit: boolean;
   onAdd: () => void;
   onScan: () => void;
 }) {
@@ -368,19 +385,23 @@ function EmptyState({
         <p className="text-sm text-muted-foreground">
           {hasAnyProducts
             ? "Probá la tab 'Compras' para ver lo que solés tener pero está sin stock."
-            : "Escaneá un código de barras o agregá un producto a mano para empezar."}
+            : canEdit
+              ? "Escaneá un código de barras o agregá un producto a mano para empezar."
+              : "Todavía no hay nada cargado en este hogar."}
         </p>
       </div>
-      <div className="flex gap-2">
-        <Button onClick={onScan} size="lg">
-          <ScanLine className="size-4" />
-          Escanear
-        </Button>
-        <Button variant="outline" onClick={onAdd} size="lg">
-          <Plus className="size-4" />
-          Agregar
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="flex gap-2">
+          <Button onClick={onScan} size="lg">
+            <ScanLine className="size-4" />
+            Escanear
+          </Button>
+          <Button variant="outline" onClick={onAdd} size="lg">
+            <Plus className="size-4" />
+            Agregar
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

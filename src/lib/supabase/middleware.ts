@@ -33,16 +33,23 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
+  // /invite/* es un caso especial: queremos que el SSR de la página decida
+  // qué hacer (logueado → aceptar, no logueado → redirigir a /login con
+  // next=). El middleware no debe redirigir antes de que la página corra.
+  const isInvite = path.startsWith("/invite/");
 
-  if (!user && !isPublic) {
+  if (!user && !isPublic && !isInvite) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.searchParams.set("next", path);
     return NextResponse.redirect(url);
   }
 
   if (user && path === "/login") {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    const next = request.nextUrl.searchParams.get("next");
+    url.pathname = next && next.startsWith("/") ? next : "/";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 

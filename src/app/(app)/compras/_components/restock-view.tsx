@@ -36,6 +36,7 @@ type Props = {
   lowStock: ProductWithLocation[];
   productsInList: Set<string>;
   locations: Location[];
+  canEdit: boolean;
 };
 
 export function RestockView({
@@ -43,6 +44,7 @@ export function RestockView({
   lowStock,
   productsInList,
   locations,
+  canEdit,
 }: Props) {
   const router = useRouter();
   const [active, setActive] = useState<ProductWithLocation | null>(null);
@@ -80,6 +82,7 @@ export function RestockView({
               variant="out"
               productsInList={productsInList}
               pendingProduct={pendingProduct}
+              canEdit={canEdit}
               onPickLot={setActive}
               onAddToList={(p) => addToList(p, "restock")}
             />
@@ -102,6 +105,7 @@ export function RestockView({
               variant="low"
               productsInList={productsInList}
               pendingProduct={pendingProduct}
+              canEdit={canEdit}
               onPickLot={setActive}
               onAddToList={(p) => addToList(p, "low_stock")}
             />
@@ -151,6 +155,7 @@ function DepartmentBlock({
   variant,
   productsInList,
   pendingProduct,
+  canEdit,
   onPickLot,
   onAddToList,
 }: {
@@ -159,6 +164,7 @@ function DepartmentBlock({
   variant: "out" | "low";
   productsInList: Set<string>;
   pendingProduct: string | null;
+  canEdit: boolean;
   onPickLot: (p: ProductWithLocation) => void;
   onAddToList: (p: ProductWithLocation) => void;
 }) {
@@ -183,6 +189,7 @@ function DepartmentBlock({
               variant={variant}
               inList={productsInList.has(p.id)}
               pending={pendingProduct === p.id}
+              canEdit={canEdit}
               onPickLot={() => onPickLot(p)}
               onAddToList={() => onAddToList(p)}
             />
@@ -198,6 +205,7 @@ function RestockRow({
   variant,
   inList,
   pending,
+  canEdit,
   onPickLot,
   onAddToList,
 }: {
@@ -205,6 +213,7 @@ function RestockRow({
   variant: "out" | "low";
   inList: boolean;
   pending: boolean;
+  canEdit: boolean;
   onPickLot: () => void;
   onAddToList: () => void;
 }) {
@@ -241,41 +250,43 @@ function RestockRow({
         </div>
       </div>
 
-      <div className="flex items-center gap-1 shrink-0">
-        {inList ? (
-          <span className="inline-flex items-center gap-1 text-xs text-primary px-2 py-1">
-            <Check className="size-3.5" />
-            En lista
-          </span>
-        ) : (
+      {canEdit && (
+        <div className="flex items-center gap-1 shrink-0">
+          {inList ? (
+            <span className="inline-flex items-center gap-1 text-xs text-primary px-2 py-1">
+              <Check className="size-3.5" />
+              En lista
+            </span>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              onClick={onAddToList}
+              disabled={pending}
+              className="h-8"
+            >
+              {pending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <ShoppingBasket className="size-3.5" />
+              )}
+              A lista
+            </Button>
+          )}
           <Button
             type="button"
-            size="sm"
-            variant="default"
-            onClick={onAddToList}
-            disabled={pending}
-            className="h-8"
+            size="icon"
+            variant="outline"
+            onClick={onPickLot}
+            aria-label="Cargar lote ya"
+            className="size-8"
+            title="Ya lo tengo, cargar lote"
           >
-            {pending ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <ShoppingBasket className="size-3.5" />
-            )}
-            A lista
+            <Plus className="size-3.5" />
           </Button>
-        )}
-        <Button
-          type="button"
-          size="icon"
-          variant="outline"
-          onClick={onPickLot}
-          aria-label="Cargar lote ya"
-          className="size-8"
-          title="Ya lo tengo, cargar lote"
-        >
-          <Plus className="size-3.5" />
-        </Button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

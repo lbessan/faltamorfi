@@ -125,12 +125,21 @@ function ViewMode({
   const [showAddLot, setShowAddLot] = useState(false);
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
 
+  // Reset cuando cambia el producto. Patrón "state derived from props" de
+  // React 19 — los setState ocurren durante el render, no en useEffect.
+  const productKey = `${product.id}-${product.updated_at}`;
+  const [previousKey, setPreviousKey] = useState(productKey);
+  if (previousKey !== productKey) {
+    setPreviousKey(productKey);
+    setLots(null);
+    setLotsError(null);
+    setShowAddLot(false);
+    setEditingLotId(null);
+  }
+
   // Refetch lots cada vez que abre el sheet o que el product cambia.
   useEffect(() => {
     let cancelled = false;
-    setLots(null);
-    setLotsError(null);
-
     (async () => {
       try {
         const supabase = createClient();

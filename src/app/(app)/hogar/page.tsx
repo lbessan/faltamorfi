@@ -3,6 +3,8 @@ import { Home, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireCurrentHousehold } from "@/lib/db/household";
 import { listLocations } from "@/lib/db/locations";
+import { getOrCreateUserPreferences } from "@/lib/db/preferences";
+import { NotificationsSettings } from "./_components/notifications-settings";
 
 export const metadata: Metadata = {
   title: "Hogar",
@@ -13,8 +15,14 @@ export default async function HogarPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
   const household = await requireCurrentHousehold(supabase);
-  const locations = await listLocations(supabase, household.id);
+  const [locations, prefs] = await Promise.all([
+    listLocations(supabase, household.id),
+    user
+      ? getOrCreateUserPreferences(supabase, user.id)
+      : Promise.resolve(null),
+  ]);
 
   return (
     <div className="px-4 py-4 space-y-6">
@@ -29,6 +37,12 @@ export default async function HogarPage() {
           <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
         </div>
       </div>
+
+      <NotificationsSettings
+        initialEnabled={prefs?.notifications_enabled ?? false}
+        initialDays={prefs?.default_expiry_warning_days ?? 3}
+        vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
+      />
 
       <section className="space-y-2">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

@@ -1,7 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ListChecks, Plus, Sparkles } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Check,
+  ListChecks,
+  Loader2,
+  Plus,
+  ShoppingBasket,
+  Sparkles,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -20,33 +29,45 @@ import {
 import type { ProductWithLocation } from "@/lib/db/products";
 import { DynamicIcon } from "@/lib/icon-map";
 import { LotForm } from "@/app/(app)/inventario/_components/lot-form";
+import { addProductToListAction } from "../actions";
 
 type Props = {
   restock: ProductWithLocation[];
   lowStock: ProductWithLocation[];
+  productsInList: Set<string>;
   locations: Location[];
 };
 
-export function RestockView({ restock, lowStock, locations }: Props) {
+export function RestockView({
+  restock,
+  lowStock,
+  productsInList,
+  locations,
+}: Props) {
+  const router = useRouter();
   const [active, setActive] = useState<ProductWithLocation | null>(null);
+  const [, startTransition] = useTransition();
+  const [pendingProduct, setPendingProduct] = useState<string | null>(null);
 
   const groupedRestock = useMemo(() => groupByDepartment(restock), [restock]);
   const groupedLow = useMemo(() => groupByDepartment(lowStock), [lowStock]);
 
   const total = restock.length + lowStock.length;
 
-  return (
-    <div className="px-4 py-4 space-y-6">
-      <div className="space-y-1">
-        <h1 className="font-heading text-3xl font-bold tracking-tight">
-          Por reponer
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Tipos que solés tener pero ahora están sin stock o con poco. Tap para
-          cargar un lote.
-        </p>
-      </div>
+  function addToList(
+    product: ProductWithLocation,
+    source: "restock" | "low_stock",
+  ) {
+    setPendingProduct(product.id);
+    startTransition(async () => {
+      await addProductToListAction(product.id, 1, source);
+      router.refresh();
+      setPendingProduct(null);
+    });
+  }
 
+  return (
+    <div className="space-y-6">
       {total === 0 && <CelebrateEmpty />}
 
       {restock.length > 0 && (
@@ -57,7 +78,10 @@ export function RestockView({ restock, lowStock, locations }: Props) {
               department={department}
               items={items}
               variant="out"
-              onPick={setActive}
+              productsInList={productsInList}
+              pendingProduct={pendingProduct}
+              onPickLot={setActive}
+              onAddToList={(p) => addToList(p, "restock")}
             />
           ))}
         </div>
@@ -65,7 +89,7 @@ export function RestockView({ restock, lowStock, locations }: Props) {
 
       {lowStock.length > 0 && (
         <div className="space-y-4">
-          <div className="border-t border-border pt-4" />
+          {restock.length > 0 && <div className="border-t border-border pt-4" />}
           <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
             <Sparkles className="size-4 text-warning" />
             Con poco stock
@@ -76,13 +100,16 @@ export function RestockView({ restock, lowStock, locations }: Props) {
               department={department}
               items={items}
               variant="low"
-              onPick={setActive}
+              productsInList={productsInList}
+              pendingProduct={pendingProduct}
+              onPickLot={setActive}
+              onAddToList={(p) => addToList(p, "low_stock")}
             />
           ))}
         </div>
       )}
 
-      {/* Sheet para cargar un lote del producto elegido */}
+      {/* Sheet para cargar un lote directo del producto elegido */}
       <Sheet
         open={active !== null}
         onOpenChange={(open) => !open && setActive(null)}
@@ -92,7 +119,7 @@ export function RestockView({ restock, lowStock, locations }: Props) {
             <>
               <SheetHeader>
                 <SheetTitle className="font-heading text-xl">
-                  Reponer {active.name}
+                  Cargar {active.name}
                 </SheetTitle>
                 <SheetDescription>
                   Cargá la cantidad y el vencimiento del lote nuevo.
@@ -122,12 +149,18 @@ function DepartmentBlock({
   department,
   items,
   variant,
-  onPick,
+  productsInList,
+  pendingProduct,
+  onPickLot,
+  onAddToList,
 }: {
   department: Department;
   items: ProductWithLocation[];
   variant: "out" | "low";
-  onPick: (p: ProductWithLocation) => void;
+  productsInList: Set<string>;
+  pendingProduct: string | null;
+  onPickLot: (p: ProductWithLocation) => void;
+  onAddToList: (p: ProductWithLocation) => void;
 }) {
   return (
     <section className="space-y-2">
@@ -142,43 +175,108 @@ function DepartmentBlock({
           ({items.length})
         </span>
       </h2>
-      <ul className="grid grid-cols-2 gap-2">
+      <ul className="space-y-2">
         {items.map((p) => (
           <li key={p.id}>
-            <button
-              type="button"
-              onClick={() => onPick(p)}
-              className={`w-full h-full rounded-xl border bg-card p-3 flex items-center gap-3 text-left active:scale-[0.98] transition-all ${
-                variant === "low"
-                  ? "border-warning/30 hover:bg-warning/5"
-                  : "border-border hover:bg-accent/40"
-              }`}
-            >
-              <div
-                className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${
-                  variant === "low" ? "bg-warning/20" : "bg-muted"
-                }`}
-              >
-                <DynamicIcon
-                  name={p.icon}
-                  className={`size-5 ${variant === "low" ? "text-warning-foreground" : "text-muted-foreground"}`}
-                  strokeWidth={1.7}
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm truncate">{p.name}</div>
-                <div className="text-[11px] text-muted-foreground truncate">
-                  {variant === "low"
-                    ? `${formatQuantity(Number(p.quantity))} restante`
-                    : "Sin stock"}
-                </div>
-              </div>
-              <Plus className="size-4 text-muted-foreground shrink-0" />
-            </button>
+            <RestockRow
+              product={p}
+              variant={variant}
+              inList={productsInList.has(p.id)}
+              pending={pendingProduct === p.id}
+              onPickLot={() => onPickLot(p)}
+              onAddToList={() => onAddToList(p)}
+            />
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+function RestockRow({
+  product,
+  variant,
+  inList,
+  pending,
+  onPickLot,
+  onAddToList,
+}: {
+  product: ProductWithLocation;
+  variant: "out" | "low";
+  inList: boolean;
+  pending: boolean;
+  onPickLot: () => void;
+  onAddToList: () => void;
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-3 flex items-center gap-3 ${
+        variant === "low"
+          ? "border-warning/30 bg-warning/5"
+          : "border-border bg-card"
+      }`}
+    >
+      <div
+        className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${
+          variant === "low" ? "bg-warning/20" : "bg-muted"
+        }`}
+      >
+        <DynamicIcon
+          name={product.icon}
+          className={`size-5 ${
+            variant === "low"
+              ? "text-warning-foreground"
+              : "text-muted-foreground"
+          }`}
+          strokeWidth={1.7}
+        />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="font-medium text-sm truncate">{product.name}</div>
+        <div className="text-[11px] text-muted-foreground truncate">
+          {variant === "low"
+            ? `${formatQuantity(Number(product.quantity))} restante`
+            : "Sin stock"}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1 shrink-0">
+        {inList ? (
+          <span className="inline-flex items-center gap-1 text-xs text-primary px-2 py-1">
+            <Check className="size-3.5" />
+            En lista
+          </span>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            variant="default"
+            onClick={onAddToList}
+            disabled={pending}
+            className="h-8"
+          >
+            {pending ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <ShoppingBasket className="size-3.5" />
+            )}
+            A lista
+          </Button>
+        )}
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          onClick={onPickLot}
+          aria-label="Cargar lote ya"
+          className="size-8"
+          title="Ya lo tengo, cargar lote"
+        >
+          <Plus className="size-3.5" />
+        </Button>
+      </div>
+    </div>
   );
 }
 

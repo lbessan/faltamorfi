@@ -3,23 +3,22 @@ import { createClient } from "@/lib/supabase/server";
 import { requireCurrentHousehold } from "@/lib/db/household";
 import { listLocations } from "@/lib/db/locations";
 import { listProducts } from "@/lib/db/products";
-import { RestockView } from "./_components/restock-view";
+import { listShoppingItems } from "@/lib/db/shopping";
+import { ComprasView } from "./_components/compras-view";
 
 export const metadata: Metadata = {
-  title: "Por reponer",
+  title: "Compras",
 };
 
-export default async function ListaPage() {
+export default async function ComprasPage() {
   const supabase = await createClient();
   const household = await requireCurrentHousehold(supabase);
-  const [locations, products] = await Promise.all([
+  const [locations, products, shoppingItems] = await Promise.all([
     listLocations(supabase, household.id),
     listProducts(supabase, household.id),
+    listShoppingItems(supabase, household.id, ["pending", "checked"]),
   ]);
 
-  // "Por reponer" = activos sin stock (quantity = 0)
-  // y los que están bajo umbral (con poco stock) también podrían entrar acá,
-  // pero los priorizamos abajo en la misma lista.
   const restock = products.filter(
     (p) => p.is_active && Number(p.quantity) <= 0,
   );
@@ -30,10 +29,19 @@ export default async function ListaPage() {
       Number(p.quantity) <= Number(p.low_stock_threshold),
   );
 
+  // Set de product_ids que ya están en la lista (para mostrar el badge).
+  const productsInList = new Set(
+    shoppingItems
+      .filter((s) => s.product_id !== null && s.state !== "completed")
+      .map((s) => s.product_id as string),
+  );
+
   return (
-    <RestockView
+    <ComprasView
       restock={restock}
       lowStock={lowStock}
+      productsInList={productsInList}
+      shoppingItems={shoppingItems}
       locations={locations}
     />
   );

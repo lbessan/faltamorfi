@@ -51,7 +51,7 @@ export function InventoryView({
   const [lookupPending, startLookup] = useTransition();
   const [lookupError, setLookupError] = useState<string | null>(null);
 
-  // Solo mostramos productos activos con stock > 0. Los activos sin stock van a /lista.
+  // Solo mostramos productos activos con stock > 0. Los activos sin stock van a /compras.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
@@ -367,7 +367,7 @@ function EmptyState({
         </h2>
         <p className="text-sm text-muted-foreground">
           {hasAnyProducts
-            ? "Probá la tab 'Lista' para ver lo que solés tener pero está sin stock."
+            ? "Probá la tab 'Compras' para ver lo que solés tener pero está sin stock."
             : "Escaneá un código de barras o agregá un producto a mano para empezar."}
         </p>
       </div>

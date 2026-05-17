@@ -20,10 +20,10 @@ const NAV_ITEMS: NavItem[] = [
     match: (path) => path === "/" || path.startsWith("/inventario"),
   },
   {
-    href: "/lista",
-    label: "Reponer",
+    href: "/compras",
+    label: "Compras",
     icon: ShoppingBasket,
-    match: (path) => path.startsWith("/lista"),
+    match: (path) => path.startsWith("/compras"),
   },
   {
     href: "/hogar",

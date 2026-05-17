@@ -132,7 +132,7 @@ export async function setProductActiveAction(
     const supabase = await createClient();
     await updateProduct(supabase, productId, { is_active: active });
     revalidatePath(INVENTORY_PATH);
-    revalidatePath("/lista");
+    revalidatePath("/compras");
     revalidatePath("/hogar");
     return { status: "success" };
   } catch (err) {

@@ -265,6 +265,67 @@ export type Database = {
           },
         ];
       };
+      shopping_list_items: {
+        Row: {
+          id: string;
+          household_id: string;
+          product_id: string | null;
+          custom_name: string | null;
+          quantity: number;
+          unit: string;
+          notes: string | null;
+          state: "pending" | "checked" | "completed" | "discarded";
+          source: "manual" | "restock" | "low_stock";
+          added_at: string;
+          added_by: string | null;
+          checked_at: string | null;
+          completed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          product_id?: string | null;
+          custom_name?: string | null;
+          quantity?: number;
+          unit?: string;
+          notes?: string | null;
+          state?: "pending" | "checked" | "completed" | "discarded";
+          source?: "manual" | "restock" | "low_stock";
+          added_at?: string;
+          added_by?: string | null;
+          checked_at?: string | null;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          household_id?: string;
+          product_id?: string | null;
+          custom_name?: string | null;
+          quantity?: number;
+          unit?: string;
+          notes?: string | null;
+          state?: "pending" | "checked" | "completed" | "discarded";
+          source?: "manual" | "restock" | "low_stock";
+          added_at?: string;
+          added_by?: string | null;
+          checked_at?: string | null;
+          completed_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shopping_list_items_household_id_fkey";
+            columns: ["household_id"];
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "shopping_list_items_product_id_fkey";
+            columns: ["product_id"];
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_preferences: {
         Row: {
           user_id: string;
@@ -296,6 +357,10 @@ export type Database = {
         Args: { target_product_id: string; amount: number };
         Returns: number;
       };
+      close_shopping_trip: {
+        Args: { target_household_id: string };
+        Returns: number;
+      };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
@@ -318,6 +383,7 @@ export type Product = Tables<"products">;
 export type ConsumptionLog = Tables<"consumption_log">;
 export type StockItem = Tables<"stock_items">;
 export type UserPreferences = Tables<"user_preferences">;
+export type ShoppingListItem = Tables<"shopping_list_items">;
 
 export const LOCATION_KINDS = [
   "general",

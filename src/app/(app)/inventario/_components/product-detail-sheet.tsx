@@ -1,8 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Minus, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  Minus,
+  Package2,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -12,47 +19,71 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { UNIT_LABELS, type Location, type Unit } from "@/lib/database.types";
+import {
+  listStockItems,
+  type StockItemWithLocation,
+} from "@/lib/db/stock-items";
+import { createClient } from "@/lib/supabase/client";
 import type { ProductWithLocation } from "@/lib/db/products";
 import {
   consumeProductAction,
   deleteProductAction,
   updateProductAction,
 } from "../actions";
+import { LotCard } from "./lot-card";
+import { LotForm } from "./lot-form";
 import { ProductForm } from "./product-form";
 
 type Props = {
   product: ProductWithLocation | null;
   locations: Location[];
+  warningDays: number;
   onOpenChange: (open: boolean) => void;
 };
 
-export function ProductDetailSheet({ product, locations, onOpenChange }: Props) {
-  const [mode, setMode] = useState<"view" | "edit">("view");
+type Mode = "view" | "editProduct";
+
+export function ProductDetailSheet({
+  product,
+  locations,
+  warningDays,
+  onOpenChange,
+}: Props) {
+  const [mode, setMode] = useState<Mode>("view");
   const open = product !== null;
 
-  function handleOpenChange(next: boolean) {
-    if (!next) setMode("view");
-    onOpenChange(next);
-  }
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (!next) setMode("view");
+      onOpenChange(next);
+    },
+    [onOpenChange],
+  );
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto">
+      <SheetContent
+        side="bottom"
+        className="max-h-[92vh] overflow-y-auto"
+      >
         {product && mode === "view" && (
           <ViewMode
             product={product}
-            onEdit={() => setMode("edit")}
+            locations={locations}
+            warningDays={warningDays}
+            onEditProduct={() => setMode("editProduct")}
             onClose={() => handleOpenChange(false)}
           />
         )}
 
-        {product && mode === "edit" && (
+        {product && mode === "editProduct" && (
           <>
             <SheetHeader>
               <SheetTitle>Editar producto</SheetTitle>
               <SheetDescription>
-                Cambiá lo que necesites y guardá.
+                Datos generales del producto. Los lotes se gestionan aparte.
               </SheetDescription>
             </SheetHeader>
             <div className="px-4 pb-6">
@@ -61,7 +92,7 @@ export function ProductDetailSheet({ product, locations, onOpenChange }: Props) 
                 locations={locations}
                 product={product}
                 submitLabel="Guardar cambios"
-                onSuccess={() => handleOpenChange(false)}
+                onSuccess={() => setMode("view")}
               />
             </div>
           </>
@@ -71,17 +102,52 @@ export function ProductDetailSheet({ product, locations, onOpenChange }: Props) 
   );
 }
 
+// ----------------------------------------------------------------------------
+
 function ViewMode({
   product,
-  onEdit,
+  locations,
+  warningDays,
+  onEditProduct,
   onClose,
 }: {
   product: ProductWithLocation;
-  onEdit: () => void;
+  locations: Location[];
+  warningDays: number;
+  onEditProduct: () => void;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+
+  const [lots, setLots] = useState<StockItemWithLocation[] | null>(null);
+  const [lotsError, setLotsError] = useState<string | null>(null);
+  const [showAddLot, setShowAddLot] = useState(false);
+  const [editingLotId, setEditingLotId] = useState<string | null>(null);
+
+  // Refetch lots cada vez que abre el sheet o que el product cambia.
+  useEffect(() => {
+    let cancelled = false;
+    setLots(null);
+    setLotsError(null);
+
+    (async () => {
+      try {
+        const supabase = createClient();
+        const data = await listStockItems(supabase, product.id);
+        if (!cancelled) setLots(data);
+      } catch (err) {
+        if (!cancelled)
+          setLotsError(
+            err instanceof Error ? err.message : "Error cargando lotes.",
+          );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [product.id, product.updated_at]);
 
   const qty = Number(product.quantity);
   const threshold = Number(product.low_stock_threshold);
@@ -89,15 +155,20 @@ function ViewMode({
   const step = ["un", "paq"].includes(product.unit) ? 1 : 0.1;
 
   function adjust(delta: number) {
-    if (qty + delta < 0 && delta < 0 && qty === 0) return;
-    startTransition(async () => {
-      try {
-        await consumeProductAction(product.id, -delta);
-        router.refresh();
-      } catch (err) {
-        console.error(err);
-      }
-    });
+    if (delta < 0 && qty <= 0) return;
+    if (delta < 0) {
+      startTransition(async () => {
+        try {
+          await consumeProductAction(product.id, -delta);
+          router.refresh();
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    } else {
+      // Sumar = abrir el form de nuevo lote
+      setShowAddLot(true);
+    }
   }
 
   function consumeAll() {
@@ -124,10 +195,17 @@ function ViewMode({
     });
   }
 
+  function closeLotForm() {
+    setShowAddLot(false);
+    setEditingLotId(null);
+  }
+
   return (
     <>
       <SheetHeader>
-        <SheetTitle className="pr-8">{product.name}</SheetTitle>
+        <SheetTitle className="font-heading text-xl pr-8">
+          {product.name}
+        </SheetTitle>
         <SheetDescription>
           {[product.brand, product.category].filter(Boolean).join(" · ") ||
             "Sin marca ni categoría"}
@@ -135,10 +213,10 @@ function ViewMode({
       </SheetHeader>
 
       <div className="px-4 pb-6 space-y-4">
-        <div className="rounded-lg border border-border p-4 flex items-center justify-between gap-3">
+        <div className="rounded-xl border border-border bg-card p-4 flex items-center justify-between gap-3">
           <div>
-            <div className="text-xs text-muted-foreground">Stock actual</div>
-            <div className="text-2xl font-semibold tabular-nums">
+            <div className="text-xs text-muted-foreground">Stock total</div>
+            <div className="text-2xl font-heading font-bold tabular-nums">
               {formatQuantity(qty)}{" "}
               <span className="text-base font-normal text-muted-foreground">
                 {unitLabel}
@@ -156,7 +234,7 @@ function ViewMode({
               size="icon"
               onClick={() => adjust(-step)}
               disabled={pending || qty <= 0}
-              aria-label="Restar"
+              aria-label="Consumir"
             >
               <Minus className="size-4" />
             </Button>
@@ -166,7 +244,7 @@ function ViewMode({
               size="icon"
               onClick={() => adjust(step)}
               disabled={pending}
-              aria-label="Sumar"
+              aria-label="Sumar lote"
             >
               <Plus className="size-4" />
             </Button>
@@ -180,12 +258,10 @@ function ViewMode({
             onClick={consumeAll}
             disabled={pending || qty <= 0}
           >
-            {pending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : null}
+            {pending && <Loader2 className="size-4 animate-spin" />}
             Consumir todo
           </Button>
-          <Button type="button" variant="secondary" onClick={onEdit}>
+          <Button type="button" variant="secondary" onClick={onEditProduct}>
             <Pencil className="size-4" />
             Editar
           </Button>
@@ -193,13 +269,94 @@ function ViewMode({
 
         <Separator />
 
-        <DetailRow label="Ubicación" value={product.location?.name ?? "Sin asignar"} />
+        {/* ----- Sección Lotes ----- */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Lotes
+            </h2>
+            {!showAddLot && !editingLotId && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setShowAddLot(true)}
+              >
+                <Plus className="size-3.5" />
+                Agregar
+              </Button>
+            )}
+          </div>
+
+          {showAddLot && (
+            <LotForm
+              productId={product.id}
+              productName={product.name}
+              locations={locations}
+              defaultLocationId={product.default_location_id}
+              onClose={closeLotForm}
+            />
+          )}
+
+          {lots === null && !lotsError && (
+            <div className="space-y-2">
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+            </div>
+          )}
+
+          {lotsError && (
+            <p className="text-sm text-destructive border border-destructive/30 rounded-md px-3 py-2">
+              {lotsError}
+            </p>
+          )}
+
+          {lots !== null && lots.length === 0 && !showAddLot && (
+            <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              <Package2 className="size-6 mx-auto mb-2 opacity-50" />
+              No hay lotes cargados.
+              <br />
+              Agregá uno para llevar vencimientos.
+            </div>
+          )}
+
+          {lots !== null && lots.length > 0 && (
+            <ul className="space-y-2">
+              {lots.map((lot) =>
+                editingLotId === lot.id ? (
+                  <li key={lot.id}>
+                    <LotForm
+                      productId={product.id}
+                      productName={product.name}
+                      locations={locations}
+                      lot={lot}
+                      onClose={closeLotForm}
+                    />
+                  </li>
+                ) : (
+                  <li key={lot.id}>
+                    <LotCard
+                      lot={lot}
+                      unit={product.unit}
+                      warningDays={warningDays}
+                      onEdit={() => {
+                        setShowAddLot(false);
+                        setEditingLotId(lot.id);
+                      }}
+                    />
+                  </li>
+                ),
+              )}
+            </ul>
+          )}
+        </section>
+
+        <Separator />
+
         {product.barcode && (
           <DetailRow label="Código de barras" value={product.barcode} mono />
         )}
-        {product.notes && (
-          <DetailRow label="Notas" value={product.notes} />
-        )}
+        {product.notes && <DetailRow label="Notas" value={product.notes} />}
 
         <Button
           type="button"

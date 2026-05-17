@@ -1,12 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { consumeFromLots } from "@/lib/db/stock-items";
 
 /**
- * Registra un consumo: descuenta del stock del producto e inserta un log.
+ * Registra un consumo: descuenta del stock vía FIFO sobre lotes
+ * (`consume_from_lots` RPC) e inserta el log para histórico/predicciones.
  *
- * No es atómico (en Fase 5 lo movemos a una función RPC en Postgres), pero
- * para Fase 1 con un único usuario activo es suficiente. La cantidad puede
- * ser negativa (devolución / ajuste positivo).
+ * - El descuento es atómico (lock + update por lote en una sola transacción
+ *   server-side).
+ * - `products.quantity` se actualiza automáticamente vía trigger.
+ * - Si `quantity` es negativo o cero, no hacemos nada.
  */
 export async function consumeProduct(
   supabase: SupabaseClient<Database>,
@@ -19,29 +22,47 @@ export async function consumeProduct(
 ): Promise<void> {
   const { productId, quantity, userId, note } = params;
 
-  const { data: current, error: fetchError } = await supabase
-    .from("products")
-    .select("quantity")
-    .eq("id", productId)
-    .single();
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return;
+  }
 
-  if (fetchError) throw fetchError;
+  const consumed = await consumeFromLots(supabase, productId, quantity);
 
-  const newQuantity = Math.max(0, Number(current.quantity) - quantity);
-
-  const { error: updateError } = await supabase
-    .from("products")
-    .update({ quantity: newQuantity })
-    .eq("id", productId);
-
-  if (updateError) throw updateError;
+  if (consumed <= 0) return;
 
   const { error: logError } = await supabase.from("consumption_log").insert({
     product_id: productId,
-    quantity,
+    quantity: consumed,
     user_id: userId,
     note: note ?? null,
   });
 
   if (logError) throw logError;
+}
+
+/**
+ * Suma stock al producto creando un lote nuevo con la cantidad indicada.
+ * Útil para "devolución" / ajustes positivos cuando ya no querés usar el
+ * flujo principal de "agregar lote".
+ */
+export async function addStockAsLot(
+  supabase: SupabaseClient<Database>,
+  params: {
+    productId: string;
+    quantity: number;
+    locationId: string | null;
+    expiresOn?: string | null;
+  },
+): Promise<void> {
+  const { productId, quantity, locationId, expiresOn } = params;
+  if (!Number.isFinite(quantity) || quantity <= 0) return;
+
+  const { error } = await supabase.from("stock_items").insert({
+    product_id: productId,
+    location_id: locationId,
+    quantity,
+    expires_on: expiresOn ?? null,
+  });
+
+  if (error) throw error;
 }

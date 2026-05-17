@@ -21,9 +21,15 @@ type Props = {
   householdName: string;
   locations: Location[];
   products: ProductWithLocation[];
+  warningDays: number;
 };
 
-export function InventoryView({ householdName, locations, products }: Props) {
+export function InventoryView({
+  householdName,
+  locations,
+  products,
+  warningDays,
+}: Props) {
   const [query, setQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState<string>(
     ALL_LOCATIONS_VALUE,
@@ -221,6 +227,7 @@ export function InventoryView({ householdName, locations, products }: Props) {
       <ProductDetailSheet
         product={selected}
         locations={locations}
+        warningDays={warningDays}
         onOpenChange={(open) => !open && setSelected(null)}
       />
 

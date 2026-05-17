@@ -72,6 +72,7 @@ export type Database = {
           household_id: string;
           name: string;
           icon: string | null;
+          kind: LocationKind;
           sort_order: number;
           created_at: string;
         };
@@ -80,6 +81,7 @@ export type Database = {
           household_id: string;
           name: string;
           icon?: string | null;
+          kind?: LocationKind;
           sort_order?: number;
           created_at?: string;
         };
@@ -88,6 +90,7 @@ export type Database = {
           household_id?: string;
           name?: string;
           icon?: string | null;
+          kind?: LocationKind;
           sort_order?: number;
           created_at?: string;
         };
@@ -201,9 +204,90 @@ export type Database = {
           },
         ];
       };
+      stock_items: {
+        Row: {
+          id: string;
+          product_id: string;
+          location_id: string | null;
+          quantity: number;
+          expires_on: string | null;
+          frozen_at: string | null;
+          frozen_max_days: number | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          location_id?: string | null;
+          quantity: number;
+          expires_on?: string | null;
+          frozen_at?: string | null;
+          frozen_max_days?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          product_id?: string;
+          location_id?: string | null;
+          quantity?: number;
+          expires_on?: string | null;
+          frozen_at?: string | null;
+          frozen_max_days?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stock_items_product_id_fkey";
+            columns: ["product_id"];
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_items_location_id_fkey";
+            columns: ["location_id"];
+            referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      user_preferences: {
+        Row: {
+          user_id: string;
+          default_expiry_warning_days: number;
+          notifications_enabled: boolean;
+          push_subscription: Json | null;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          default_expiry_warning_days?: number;
+          notifications_enabled?: boolean;
+          push_subscription?: Json | null;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          default_expiry_warning_days?: number;
+          notifications_enabled?: boolean;
+          push_subscription?: Json | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      consume_from_lots: {
+        Args: { target_product_id: string; amount: number };
+        Returns: number;
+      };
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
@@ -223,6 +307,29 @@ export type HouseholdMember = Tables<"household_members">;
 export type Location = Tables<"locations">;
 export type Product = Tables<"products">;
 export type ConsumptionLog = Tables<"consumption_log">;
+export type StockItem = Tables<"stock_items">;
+export type UserPreferences = Tables<"user_preferences">;
+
+export const LOCATION_KINDS = [
+  "general",
+  "pantry",
+  "fridge",
+  "freezer",
+  "medicine",
+  "cleaning",
+  "other",
+] as const;
+export type LocationKind = (typeof LOCATION_KINDS)[number];
+
+export const LOCATION_KIND_LABELS: Record<LocationKind, string> = {
+  general: "General",
+  pantry: "Alacena",
+  fridge: "Heladera",
+  freezer: "Freezer",
+  medicine: "Botiquín",
+  cleaning: "Limpieza",
+  other: "Otro",
+};
 
 export const UNITS = ["un", "kg", "g", "l", "ml", "paq"] as const;
 export type Unit = (typeof UNITS)[number];

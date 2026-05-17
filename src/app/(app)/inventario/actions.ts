@@ -9,6 +9,11 @@ import {
   updateProduct,
 } from "@/lib/db/products";
 import { consumeProduct } from "@/lib/db/consumption";
+import {
+  deleteStockItem,
+  insertStockItem,
+  updateStockItem,
+} from "@/lib/db/stock-items";
 import { UNITS, type Unit } from "@/lib/database.types";
 import { EMPTY_VALUE_SENTINEL, type ActionState } from "./constants";
 
@@ -149,6 +154,75 @@ export async function consumeProductAction(
     userId: user?.id ?? null,
   });
 
+  revalidatePath(INVENTORY_PATH);
+}
+
+// ----------------------------------------------------------------------------
+// Lotes (stock_items)
+// ----------------------------------------------------------------------------
+
+export type LotInput = {
+  product_id: string;
+  quantity: number;
+  location_id?: string | null;
+  expires_on?: string | null;
+  frozen_at?: string | null;
+  frozen_max_days?: number | null;
+  notes?: string | null;
+};
+
+export async function addLotAction(input: LotInput): Promise<ActionState> {
+  try {
+    if (!input.product_id) {
+      return { status: "error", message: "Falta el id del producto." };
+    }
+    if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
+      return { status: "error", message: "La cantidad debe ser mayor a 0." };
+    }
+
+    const supabase = await createClient();
+    await insertStockItem(supabase, {
+      product_id: input.product_id,
+      quantity: input.quantity,
+      location_id: input.location_id ?? null,
+      expires_on: input.expires_on ?? null,
+      frozen_at: input.frozen_at ?? null,
+      frozen_max_days: input.frozen_max_days ?? null,
+      notes: input.notes ?? null,
+    });
+
+    revalidatePath(INVENTORY_PATH);
+    return { status: "success", message: "Lote agregado." };
+  } catch (err) {
+    return { status: "error", message: describeError(err) };
+  }
+}
+
+export async function updateLotAction(
+  lotId: string,
+  patch: Partial<Omit<LotInput, "product_id">>,
+): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+    await updateStockItem(supabase, lotId, {
+      quantity: patch.quantity,
+      location_id: patch.location_id,
+      expires_on: patch.expires_on,
+      frozen_at: patch.frozen_at,
+      frozen_max_days: patch.frozen_max_days,
+      notes: patch.notes,
+    });
+
+    revalidatePath(INVENTORY_PATH);
+    return { status: "success" };
+  } catch (err) {
+    return { status: "error", message: describeError(err) };
+  }
+}
+
+export async function deleteLotAction(lotId: string): Promise<void> {
+  const supabase = await createClient();
+  await deleteStockItem(supabase, lotId);
   revalidatePath(INVENTORY_PATH);
 }
 

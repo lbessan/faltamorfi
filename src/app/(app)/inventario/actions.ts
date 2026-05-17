@@ -35,6 +35,20 @@ function normalizeUnit(value: string): Unit {
   return (UNITS as readonly string[]).includes(value) ? (value as Unit) : "un";
 }
 
+/**
+ * Convierte errores conocidos de Postgres en mensajes legibles en español.
+ * Trabaja con el shape de error de Supabase (PostgrestError tiene `code`).
+ */
+function describeError(err: unknown): string {
+  if (typeof err === "object" && err !== null && "code" in err) {
+    const code = (err as { code?: string }).code;
+    if (code === "23505") {
+      return "Ya tenés otro producto con ese mismo código de barras.";
+    }
+  }
+  return err instanceof Error ? err.message : "Error desconocido.";
+}
+
 // ----------------------------------------------------------------------------
 
 export async function addProductAction(
@@ -66,7 +80,7 @@ export async function addProductAction(
   } catch (err) {
     return {
       status: "error",
-      message: err instanceof Error ? err.message : "Error desconocido.",
+      message: describeError(err),
     };
   }
 }
@@ -103,7 +117,7 @@ export async function updateProductAction(
   } catch (err) {
     return {
       status: "error",
-      message: err instanceof Error ? err.message : "Error desconocido.",
+      message: describeError(err),
     };
   }
 }

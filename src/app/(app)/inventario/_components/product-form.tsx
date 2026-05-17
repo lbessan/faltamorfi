@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,10 +23,24 @@ import type { ProductWithLocation } from "@/lib/db/products";
 
 const NO_LOCATION_VALUE = EMPTY_VALUE_SENTINEL;
 
+export type ProductFormDefaults = {
+  name?: string;
+  brand?: string;
+  category?: string;
+  unit?: Unit;
+  quantity?: number;
+  low_stock_threshold?: number;
+  default_location_id?: string | null;
+  barcode?: string;
+  notes?: string;
+};
+
 type Props = {
   action: (state: ActionState, formData: FormData) => Promise<ActionState>;
   locations: Location[];
   product?: ProductWithLocation;
+  /** Valores iniciales para alta (ej. desde un escaneo OFF). Ignorado si hay `product`. */
+  initialValues?: ProductFormDefaults;
   submitLabel: string;
   onSuccess?: () => void;
 };
@@ -35,11 +49,24 @@ export function ProductForm({
   action,
   locations,
   product,
+  initialValues,
   submitLabel,
   onSuccess,
 }: Props) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(action, INITIAL_ACTION_STATE);
+
+  const defaults = useMemo(() => buildDefaults(product, initialValues), [
+    product,
+    initialValues,
+  ]);
+
+  // Re-monta el form si cambian los defaults (ej. después de un escaneo).
+  // Sin esto, los `defaultValue` no se aplican.
+  const formKey = useMemo(
+    () => `${product?.id ?? "new"}-${defaults.barcode}-${defaults.name}`,
+    [product?.id, defaults.barcode, defaults.name],
+  );
 
   useEffect(() => {
     if (state.status === "success") {
@@ -49,7 +76,7 @@ export function ProductForm({
   }, [state, router, onSuccess]);
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form key={formKey} action={formAction} className="space-y-3">
       {product && <input type="hidden" name="id" value={product.id} />}
 
       <Field id="name" label="Nombre" required>
@@ -57,7 +84,7 @@ export function ProductForm({
           id="name"
           name="name"
           required
-          defaultValue={product?.name ?? ""}
+          defaultValue={defaults.name}
           placeholder="Leche entera"
           autoComplete="off"
         />
@@ -68,7 +95,7 @@ export function ProductForm({
           <Input
             id="brand"
             name="brand"
-            defaultValue={product?.brand ?? ""}
+            defaultValue={defaults.brand}
             placeholder="La Serenísima"
             autoComplete="off"
           />
@@ -78,7 +105,7 @@ export function ProductForm({
           <Input
             id="category"
             name="category"
-            defaultValue={product?.category ?? ""}
+            defaultValue={defaults.category}
             placeholder="Lácteos"
             autoComplete="off"
           />
@@ -94,15 +121,12 @@ export function ProductForm({
             inputMode="decimal"
             step="any"
             min="0"
-            defaultValue={product?.quantity ?? 0}
+            defaultValue={defaults.quantity}
           />
         </Field>
 
         <Field id="unit" label="Unidad">
-          <Select
-            name="unit"
-            defaultValue={(product?.unit as Unit) ?? "un"}
-          >
+          <Select name="unit" defaultValue={defaults.unit}>
             <SelectTrigger id="unit" className="w-full">
               <SelectValue placeholder="Unidad" />
             </SelectTrigger>
@@ -128,14 +152,14 @@ export function ProductForm({
           inputMode="decimal"
           step="any"
           min="0"
-          defaultValue={product?.low_stock_threshold ?? 1}
+          defaultValue={defaults.low_stock_threshold}
         />
       </Field>
 
       <Field id="default_location_id" label="Ubicación">
         <Select
           name="default_location_id"
-          defaultValue={product?.default_location_id ?? NO_LOCATION_VALUE}
+          defaultValue={defaults.default_location_id}
         >
           <SelectTrigger id="default_location_id" className="w-full">
             <SelectValue placeholder="Elegí una ubicación" />
@@ -149,8 +173,6 @@ export function ProductForm({
             ))}
           </SelectContent>
         </Select>
-        {/* El Select de shadcn devuelve nuestro sentinel para "sin asignar".
-            Como la action lo trata como nullable, esto funciona bien. */}
       </Field>
 
       <Field id="barcode" label="Código de barras (opcional)">
@@ -158,7 +180,7 @@ export function ProductForm({
           id="barcode"
           name="barcode"
           inputMode="numeric"
-          defaultValue={product?.barcode ?? ""}
+          defaultValue={defaults.barcode}
           placeholder="7790070410016"
           autoComplete="off"
         />
@@ -168,7 +190,7 @@ export function ProductForm({
         <Input
           id="notes"
           name="notes"
-          defaultValue={product?.notes ?? ""}
+          defaultValue={defaults.notes}
           placeholder="Comprar siempre la sin lactosa"
           autoComplete="off"
         />
@@ -189,6 +211,36 @@ export function ProductForm({
       )}
     </form>
   );
+}
+
+function buildDefaults(
+  product: ProductWithLocation | undefined,
+  initial: ProductFormDefaults | undefined,
+) {
+  if (product) {
+    return {
+      name: product.name,
+      brand: product.brand ?? "",
+      category: product.category ?? "",
+      unit: (product.unit as Unit) ?? "un",
+      quantity: product.quantity,
+      low_stock_threshold: product.low_stock_threshold,
+      default_location_id: product.default_location_id ?? NO_LOCATION_VALUE,
+      barcode: product.barcode ?? "",
+      notes: product.notes ?? "",
+    };
+  }
+  return {
+    name: initial?.name ?? "",
+    brand: initial?.brand ?? "",
+    category: initial?.category ?? "",
+    unit: initial?.unit ?? ("un" as Unit),
+    quantity: initial?.quantity ?? 0,
+    low_stock_threshold: initial?.low_stock_threshold ?? 1,
+    default_location_id: initial?.default_location_id ?? NO_LOCATION_VALUE,
+    barcode: initial?.barcode ?? "",
+    notes: initial?.notes ?? "",
+  };
 }
 
 function Field({

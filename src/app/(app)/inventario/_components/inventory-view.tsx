@@ -1,15 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { useCallback, useMemo, useState, useTransition } from "react";
+import { Loader2, Plus, ScanLine, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Location } from "@/lib/database.types";
 import type { ProductWithLocation } from "@/lib/db/products";
+import { lookupBarcode } from "@/lib/openfoodfacts";
+import { BarcodeScannerSheet } from "@/components/barcode-scanner";
 import { ProductCard } from "./product-card";
 import { AddProductSheet } from "./add-product-sheet";
 import { ProductDetailSheet } from "./product-detail-sheet";
+import type { ProductFormDefaults } from "./product-form";
 
 const ALL_LOCATIONS_VALUE = "__all__";
 const NO_LOCATION_VALUE = "__none__";
@@ -26,7 +29,11 @@ export function InventoryView({ householdName, locations, products }: Props) {
     ALL_LOCATIONS_VALUE,
   );
   const [addOpen, setAddOpen] = useState(false);
+  const [addPrefill, setAddPrefill] = useState<ProductFormDefaults | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [selected, setSelected] = useState<ProductWithLocation | null>(null);
+  const [lookupPending, startLookup] = useTransition();
+  const [lookupError, setLookupError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -54,19 +61,88 @@ export function InventoryView({ householdName, locations, products }: Props) {
     (p) => Number(p.quantity) <= Number(p.low_stock_threshold),
   ).length;
 
+  const openAddManual = useCallback(() => {
+    setAddPrefill(null);
+    setAddOpen(true);
+  }, []);
+
+  const openScanner = useCallback(() => {
+    setLookupError(null);
+    // Si el add sheet está abierto cuando piden escanear, lo cerramos
+    // antes — los sheets bottom no se pueden apilar limpiamente.
+    setAddOpen(false);
+    setSelected(null);
+    setScannerOpen(true);
+  }, []);
+
+  const handleScanned = useCallback(
+    (rawBarcode: string) => {
+      const barcode = rawBarcode.trim();
+      if (!barcode) return;
+      setScannerOpen(false);
+
+      const existing = products.find((p) => p.barcode === barcode);
+      if (existing) {
+        setSelected(existing);
+        return;
+      }
+
+      startLookup(async () => {
+        let prefill: ProductFormDefaults = { barcode };
+        try {
+          const off = await lookupBarcode(barcode);
+          if (off) {
+            prefill = {
+              barcode: off.barcode,
+              name: off.name ?? "",
+              brand: off.brand ?? "",
+              category: off.category ?? "",
+            };
+          }
+        } catch (err) {
+          setLookupError(
+            err instanceof Error
+              ? err.message
+              : "No pudimos consultar Open Food Facts.",
+          );
+        }
+        setAddPrefill(prefill);
+        setAddOpen(true);
+      });
+    },
+    [products],
+  );
+
   return (
     <div className="flex flex-col gap-4 px-4 py-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Inventario</h1>
-        <p className="text-sm text-muted-foreground">
-          {householdName} · {products.length} productos
-          {lowStockCount > 0 && (
-            <span className="text-destructive">
-              {" · "}
-              {lowStockCount} con stock bajo
-            </span>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1 min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">Inventario</h1>
+          <p className="text-sm text-muted-foreground truncate">
+            {householdName} · {products.length} productos
+            {lowStockCount > 0 && (
+              <span className="text-destructive">
+                {" · "}
+                {lowStockCount} con stock bajo
+              </span>
+            )}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={openScanner}
+          disabled={lookupPending}
+          aria-label="Escanear código"
+          className="shrink-0"
+        >
+          {lookupPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <ScanLine className="size-4" />
           )}
-        </p>
+        </Button>
       </div>
 
       <div className="relative">
@@ -93,10 +169,20 @@ export function InventoryView({ householdName, locations, products }: Props) {
         </TabsList>
       </Tabs>
 
+      {lookupError && (
+        <p
+          role="alert"
+          className="text-sm text-destructive border border-destructive/30 rounded-md px-3 py-2"
+        >
+          {lookupError}
+        </p>
+      )}
+
       {filtered.length === 0 ? (
         <EmptyState
           hasProducts={products.length > 0}
-          onAdd={() => setAddOpen(true)}
+          onAdd={openAddManual}
+          onScan={openScanner}
         />
       ) : (
         <ul className="flex flex-col gap-2">
@@ -112,7 +198,7 @@ export function InventoryView({ householdName, locations, products }: Props) {
         type="button"
         size="lg"
         className="fixed bottom-20 right-4 size-14 rounded-full shadow-lg z-10"
-        onClick={() => setAddOpen(true)}
+        onClick={openAddManual}
         aria-label="Agregar producto"
       >
         <Plus className="size-6" />
@@ -120,14 +206,25 @@ export function InventoryView({ householdName, locations, products }: Props) {
 
       <AddProductSheet
         open={addOpen}
-        onOpenChange={setAddOpen}
+        onOpenChange={(open) => {
+          setAddOpen(open);
+          if (!open) setAddPrefill(null);
+        }}
         locations={locations}
+        prefill={addPrefill}
+        onScanClick={openScanner}
       />
 
       <ProductDetailSheet
         product={selected}
         locations={locations}
         onOpenChange={(open) => !open && setSelected(null)}
+      />
+
+      <BarcodeScannerSheet
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onDetected={handleScanned}
       />
     </div>
   );
@@ -136,22 +233,30 @@ export function InventoryView({ householdName, locations, products }: Props) {
 function EmptyState({
   hasProducts,
   onAdd,
+  onScan,
 }: {
   hasProducts: boolean;
   onAdd: () => void;
+  onScan: () => void;
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
       <p className="text-muted-foreground">
         {hasProducts
           ? "No hay productos que coincidan con el filtro."
-          : "Todavía no cargaste nada. Agregá tu primer producto."}
+          : "Todavía no cargaste nada. Escaneá un producto o agregá uno a mano."}
       </p>
       {!hasProducts && (
-        <Button onClick={onAdd}>
-          <Plus className="size-4" />
-          Agregar producto
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={onScan}>
+            <ScanLine className="size-4" />
+            Escanear
+          </Button>
+          <Button variant="outline" onClick={onAdd}>
+            <Plus className="size-4" />
+            Agregar
+          </Button>
+        </div>
       )}
     </div>
   );

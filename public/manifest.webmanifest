@@ -1,7 +1,7 @@
 {
-  "name": "Stock en Casa",
-  "short_name": "StockEnCasa",
-  "description": "Control de stock doméstico con escaneo de códigos de barra, alertas y listas automáticas.",
+  "name": "Falta Morfi",
+  "short_name": "FaltaMorfi",
+  "description": "Control de stock doméstico: escaneo de códigos de barra, alertas de stock bajo y listas de compras automáticas.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

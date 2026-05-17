@@ -26,7 +26,7 @@ export default async function HomePage() {
         <div className="max-w-3xl mx-auto w-full flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
             <Package className="size-5" />
-            <span className="font-semibold">Stock en Casa</span>
+            <span className="font-semibold">Falta Morfi</span>
           </div>
           <form action="/auth/signout" method="post">
             <Button type="submit" variant="ghost" size="sm">

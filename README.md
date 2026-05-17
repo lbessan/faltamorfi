@@ -1,4 +1,4 @@
-# Stock en Casa
+# Falta Morfi
 
 App PWA para control de stock doméstico: escaneo de códigos de barra, alertas de stock bajo, listas de compras automáticas y features de IA con Claude.
 

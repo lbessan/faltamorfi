@@ -17,7 +17,7 @@ export default function LoginPage() {
     <main className="flex-1 flex items-center justify-center p-6">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-2xl">Stock en Casa</CardTitle>
+          <CardTitle className="text-2xl">Falta Morfi</CardTitle>
           <CardDescription>
             Ingresá tu email y te mandamos un link mágico para entrar. Sin
             contraseñas.

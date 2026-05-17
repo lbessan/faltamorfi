@@ -12,9 +12,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const APP_NAME = "Stock en Casa";
+const APP_NAME = "Falta Morfi";
 const APP_DESCRIPTION =
-  "Control de stock doméstico con escaneo de códigos de barra, alertas de stock bajo y listas de compras automáticas.";
+  "Control de stock doméstico: escaneo de códigos de barra, alertas de stock bajo y listas de compras automáticas.";
 
 export const metadata: Metadata = {
   applicationName: APP_NAME,

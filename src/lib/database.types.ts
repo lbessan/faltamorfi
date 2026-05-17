@@ -109,6 +109,9 @@ export type Database = {
           household_id: string;
           name: string;
           category: string | null;
+          department: string | null;
+          icon: string | null;
+          is_active: boolean;
           unit: string;
           quantity: number;
           low_stock_threshold: number;
@@ -123,6 +126,9 @@ export type Database = {
           household_id: string;
           name: string;
           category?: string | null;
+          department?: string | null;
+          icon?: string | null;
+          is_active?: boolean;
           unit?: string;
           quantity?: number;
           low_stock_threshold?: number;
@@ -137,6 +143,9 @@ export type Database = {
           household_id?: string;
           name?: string;
           category?: string | null;
+          department?: string | null;
+          icon?: string | null;
+          is_active?: boolean;
           unit?: string;
           quantity?: number;
           low_stock_threshold?: number;
@@ -330,6 +339,125 @@ export const LOCATION_KIND_LABELS: Record<LocationKind, string> = {
   cleaning: "Limpieza",
   other: "Otro",
 };
+
+// ----------------------------------------------------------------------------
+// Departamentos del catálogo
+// ----------------------------------------------------------------------------
+
+export const DEPARTMENTS = [
+  "dairy",
+  "meat",
+  "fish",
+  "deli",
+  "bakery",
+  "pantry",
+  "condiments",
+  "canned",
+  "produce",
+  "beverages",
+  "alcohol",
+  "breakfast",
+  "snacks",
+  "frozen",
+  "cleaning",
+  "personal_care",
+  "pharmacy",
+  "pets",
+  "baby",
+  "household",
+  "other",
+] as const;
+export type Department = (typeof DEPARTMENTS)[number];
+
+export const DEPARTMENT_LABELS: Record<Department, string> = {
+  dairy: "Lácteos",
+  meat: "Carnicería",
+  fish: "Pescadería",
+  deli: "Fiambres y embutidos",
+  bakery: "Panadería",
+  pantry: "Almacén",
+  condiments: "Condimentos y salsas",
+  canned: "Conservas",
+  produce: "Frutas y verduras",
+  beverages: "Bebidas",
+  alcohol: "Bebidas alcohólicas",
+  breakfast: "Desayuno e infusiones",
+  snacks: "Snacks y golosinas",
+  frozen: "Congelados",
+  cleaning: "Limpieza",
+  personal_care: "Baño y perfumería",
+  pharmacy: "Botiquín",
+  pets: "Mascotas",
+  baby: "Bebé",
+  household: "Para el hogar",
+  other: "Otros",
+};
+
+/**
+ * Icono lucide para representar cada departamento. Si el icono no existe en
+ * la versión instalada de lucide-react, hay un fallback en `lib/icon-map.tsx`.
+ */
+export const DEPARTMENT_ICONS: Record<Department, string> = {
+  dairy: "Milk",
+  meat: "Beef",
+  fish: "Fish",
+  deli: "Ham",
+  bakery: "Croissant",
+  pantry: "Wheat",
+  condiments: "Soup",
+  canned: "Package",
+  produce: "Apple",
+  beverages: "CupSoda",
+  alcohol: "Wine",
+  breakfast: "Coffee",
+  snacks: "Cookie",
+  frozen: "Snowflake",
+  cleaning: "SprayCan",
+  personal_care: "ShowerHead",
+  pharmacy: "Pill",
+  pets: "PawPrint",
+  baby: "Baby",
+  household: "Lightbulb",
+  other: "Package",
+};
+
+/**
+ * Orden por defecto para mostrar los departamentos en la UI (replicando el
+ * recorrido típico en un supermercado: producto fresco primero, después seco,
+ * después no-comestibles).
+ */
+export const DEPARTMENT_ORDER: Department[] = [
+  "produce",
+  "bakery",
+  "dairy",
+  "meat",
+  "fish",
+  "deli",
+  "frozen",
+  "pantry",
+  "condiments",
+  "canned",
+  "breakfast",
+  "snacks",
+  "beverages",
+  "alcohol",
+  "cleaning",
+  "personal_care",
+  "pharmacy",
+  "baby",
+  "pets",
+  "household",
+  "other",
+];
+
+export function isDepartment(value: string | null | undefined): value is Department {
+  if (!value) return false;
+  return (DEPARTMENTS as readonly string[]).includes(value);
+}
+
+// ----------------------------------------------------------------------------
+// Unidades
+// ----------------------------------------------------------------------------
 
 export const UNITS = ["un", "kg", "g", "l", "ml", "paq"] as const;
 export type Unit = (typeof UNITS)[number];

@@ -5,10 +5,18 @@ import { Loader2, Plus, ScanLine, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { Location } from "@/lib/database.types";
+import {
+  DEPARTMENT_ICONS,
+  DEPARTMENT_LABELS,
+  DEPARTMENT_ORDER,
+  isDepartment,
+  type Department,
+  type Location,
+} from "@/lib/database.types";
 import type { ProductWithLocation } from "@/lib/db/products";
 import { lookupBarcode } from "@/lib/openfoodfacts";
 import { BarcodeScannerSheet } from "@/components/barcode-scanner";
+import { DynamicIcon } from "@/lib/icon-map";
 import { ProductCard } from "./product-card";
 import { AddProductSheet } from "./add-product-sheet";
 import { ProductDetailSheet } from "./product-detail-sheet";
@@ -43,9 +51,12 @@ export function InventoryView({
   const [lookupPending, startLookup] = useTransition();
   const [lookupError, setLookupError] = useState<string | null>(null);
 
+  // Solo mostramos productos activos con stock > 0. Los activos sin stock van a /lista.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
+      if (!p.is_active) return false;
+      if (Number(p.quantity) <= 0) return false;
       if (
         locationFilter !== ALL_LOCATIONS_VALUE &&
         ((locationFilter === NO_LOCATION_VALUE &&
@@ -59,18 +70,21 @@ export function InventoryView({
       return (
         p.name.toLowerCase().includes(q) ||
         (p.category ?? "").toLowerCase().includes(q) ||
-        // Buscamos también en marca/código de cada lote.
         p.lots.some(
-          (l) =>
-            (l.brand ?? "").toLowerCase().includes(q) ||
-            (l.image_url == null && false), // no-op para mantener forma
+          (l) => (l.brand ?? "").toLowerCase().includes(q),
         )
       );
     });
   }, [products, query, locationFilter]);
 
+  // Agrupar por departamento, respetando el orden canónico.
+  const grouped = useMemo(() => groupByDepartment(filtered), [filtered]);
+
   const lowStockCount = products.filter(
-    (p) => Number(p.quantity) <= Number(p.low_stock_threshold),
+    (p) =>
+      p.is_active &&
+      Number(p.quantity) > 0 &&
+      Number(p.quantity) <= Number(p.low_stock_threshold),
   ).length;
 
   const openAddManual = useCallback(() => {
@@ -81,7 +95,6 @@ export function InventoryView({
 
   const openScanner = useCallback(() => {
     setLookupError(null);
-    // Si el add sheet está abierto, lo cerramos antes (no podemos anidar sheets).
     setAddOpen(false);
     setSelected(null);
     setScannerOpen(true);
@@ -93,7 +106,6 @@ export function InventoryView({
       if (!barcode) return;
       setScannerOpen(false);
 
-      // 1) ¿El barcode ya existe en algún lote del hogar?
       const existingProduct = products.find((p) =>
         p.lots.some((l) => l.barcode === barcode),
       );
@@ -102,7 +114,6 @@ export function InventoryView({
         return;
       }
 
-      // 2) Lookup OFF + buscar match por nombre
       startLookup(async () => {
         let prefill: LotPrefill = { barcode };
         let suggested: ProductWithLocation | null = null;
@@ -114,12 +125,10 @@ export function InventoryView({
               brand: off.brand,
               image_url: off.imageUrl,
             };
-            // Match heurístico contra los tipos existentes
             if (off.name) {
               suggested = findClosestProductMatch(off.name, products);
             }
             if (!suggested && off.category) {
-              // Como fallback: matchear por categoría
               suggested =
                 products.find(
                   (p) =>
@@ -150,12 +159,11 @@ export function InventoryView({
             Inventario
           </h1>
           <p className="text-sm text-muted-foreground truncate">
-            {householdName} · {products.length} productos
+            {householdName} · {filtered.length} con stock
             {lowStockCount > 0 && (
               <span className="text-warning-foreground/80">
                 {" · "}
-                <span className="font-medium">{lowStockCount}</span> con stock
-                bajo
+                <span className="font-medium">{lowStockCount}</span> bajo
               </span>
             )}
           </p>
@@ -210,24 +218,41 @@ export function InventoryView({
         </p>
       )}
 
-      {filtered.length === 0 ? (
+      {grouped.length === 0 ? (
         <EmptyState
-          hasProducts={products.length > 0}
+          hasAnyProducts={products.some((p) => Number(p.quantity) > 0)}
           onAdd={openAddManual}
           onScan={openScanner}
         />
       ) : (
-        <ul className="flex flex-col gap-2 animate-in fade-in duration-300">
-          {filtered.map((p) => (
-            <li key={p.id}>
-              <ProductCard
-                product={p}
-                warningDays={warningDays}
-                onClick={() => setSelected(p)}
-              />
-            </li>
+        <div className="space-y-5 animate-in fade-in duration-300">
+          {grouped.map(({ department, items }) => (
+            <section key={department} className="space-y-2">
+              <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <DynamicIcon
+                  name={DEPARTMENT_ICONS[department]}
+                  className="size-4"
+                  strokeWidth={2}
+                />
+                {DEPARTMENT_LABELS[department]}
+                <span className="text-muted-foreground/60 normal-case">
+                  ({items.length})
+                </span>
+              </h2>
+              <ul className="flex flex-col gap-2">
+                {items.map((p) => (
+                  <li key={p.id}>
+                    <ProductCard
+                      product={p}
+                      warningDays={warningDays}
+                      onClick={() => setSelected(p)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
 
       <Button
@@ -272,12 +297,22 @@ export function InventoryView({
 }
 
 // ----------------------------------------------------------------------------
-// Match heurístico de nombres.
-//
-// Estrategia simple: comparar tokens. Si el producto existente comparte 1+
-// tokens significativos (>= 4 chars) con el nombre de OFF, lo consideramos
-// match. Devuelve el de mejor score.
-// ----------------------------------------------------------------------------
+
+function groupByDepartment(
+  products: ProductWithLocation[],
+): Array<{ department: Department; items: ProductWithLocation[] }> {
+  const map = new Map<Department, ProductWithLocation[]>();
+  for (const p of products) {
+    const d: Department = isDepartment(p.department) ? p.department : "other";
+    const arr = map.get(d) ?? [];
+    arr.push(p);
+    map.set(d, arr);
+  }
+  return DEPARTMENT_ORDER.flatMap((d) => {
+    const items = map.get(d);
+    return items ? [{ department: d, items }] : [];
+  });
+}
 
 function findClosestProductMatch(
   offName: string,
@@ -288,11 +323,11 @@ function findClosestProductMatch(
 
   let best: { product: ProductWithLocation; score: number } | null = null;
   for (const p of products) {
+    if (!p.is_active) continue;
     const pTokens = tokenize(p.name);
     if (pTokens.length === 0) continue;
     const shared = pTokens.filter((t) => offTokens.includes(t)).length;
     if (shared === 0) continue;
-    // Bonus si el nombre del producto está completamente contenido en el de OFF.
     const bonus = offName.toLowerCase().includes(p.name.toLowerCase()) ? 2 : 0;
     const score = shared + bonus;
     if (!best || score > best.score) {
@@ -307,17 +342,17 @@ function tokenize(text: string): string[] {
   return text
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // quita acentos
+    .replace(/[̀-ͯ]/g, "")
     .split(/[^a-z0-9]+/)
     .filter((t) => t.length >= 4);
 }
 
 function EmptyState({
-  hasProducts,
+  hasAnyProducts,
   onAdd,
   onScan,
 }: {
-  hasProducts: boolean;
+  hasAnyProducts: boolean;
   onAdd: () => void;
   onScan: () => void;
 }) {
@@ -328,26 +363,24 @@ function EmptyState({
       </div>
       <div className="space-y-1 max-w-xs">
         <h2 className="font-heading text-lg font-semibold">
-          {hasProducts ? "Nada por acá" : "Arranquemos a cargar"}
+          {hasAnyProducts ? "Nada con stock por acá" : "Arranquemos a cargar"}
         </h2>
         <p className="text-sm text-muted-foreground">
-          {hasProducts
-            ? "Cambiá el filtro o la búsqueda para encontrar lo que buscás."
+          {hasAnyProducts
+            ? "Probá la tab 'Lista' para ver lo que solés tener pero está sin stock."
             : "Escaneá un código de barras o agregá un producto a mano para empezar."}
         </p>
       </div>
-      {!hasProducts && (
-        <div className="flex gap-2">
-          <Button onClick={onScan} size="lg">
-            <ScanLine className="size-4" />
-            Escanear
-          </Button>
-          <Button variant="outline" onClick={onAdd} size="lg">
-            <Plus className="size-4" />
-            Agregar
-          </Button>
-        </div>
-      )}
+      <div className="flex gap-2">
+        <Button onClick={onScan} size="lg">
+          <ScanLine className="size-4" />
+          Escanear
+        </Button>
+        <Button variant="outline" onClick={onAdd} size="lg">
+          <Plus className="size-4" />
+          Agregar
+        </Button>
+      </div>
     </div>
   );
 }

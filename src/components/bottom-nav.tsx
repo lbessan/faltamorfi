@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, ListChecks, Package } from "lucide-react";
+import { Home, Package, ShoppingBasket } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -21,8 +21,8 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/lista",
-    label: "Lista",
-    icon: ListChecks,
+    label: "Reponer",
+    icon: ShoppingBasket,
     match: (path) => path.startsWith("/lista"),
   },
   {

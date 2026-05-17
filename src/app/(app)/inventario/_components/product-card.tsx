@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { CalendarClock, MapPin, Package } from "lucide-react";
+import { CalendarClock, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UNIT_LABELS, type Unit } from "@/lib/database.types";
 import type { LotSummary, ProductWithLocation } from "@/lib/db/products";
+import { DynamicIcon } from "@/lib/icon-map";
 
 type Props = {
   product: ProductWithLocation;
@@ -30,6 +31,7 @@ export function ProductCard({ product, warningDays, onClick }: Props) {
     >
       <ProductThumb
         imageUrl={thumbUrl}
+        iconName={product.icon}
         name={product.name}
         out={out}
         low={low}
@@ -86,16 +88,17 @@ export function ProductCard({ product, warningDays, onClick }: Props) {
 
 function ProductThumb({
   imageUrl,
+  iconName,
   name,
   out,
   low,
 }: {
   imageUrl: string | null;
+  iconName: string | null;
   name: string;
   out: boolean;
   low: boolean;
 }) {
-  const initial = name.charAt(0).toUpperCase();
   const ringClass = out
     ? "ring-2 ring-destructive/40"
     : low
@@ -115,9 +118,11 @@ function ProductThumb({
           className="object-contain"
         />
       ) : (
-        <span className="font-heading font-bold text-lg text-muted-foreground">
-          {initial || <Package className="size-5" />}
-        </span>
+        <DynamicIcon
+          name={iconName}
+          className="size-5 text-muted-foreground"
+          strokeWidth={1.7}
+        />
       )}
     </div>
   );

@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { requireCurrentHousehold } from "@/lib/db/household";
 import { listLocations } from "@/lib/db/locations";
 import { getOrCreateUserPreferences } from "@/lib/db/preferences";
+import { listProducts } from "@/lib/db/products";
 import { NotificationsSettings } from "./_components/notifications-settings";
+import { TypesSettings } from "./_components/types-settings";
 
 export const metadata: Metadata = {
   title: "Hogar",
@@ -17,11 +19,12 @@ export default async function HogarPage() {
   } = await supabase.auth.getUser();
 
   const household = await requireCurrentHousehold(supabase);
-  const [locations, prefs] = await Promise.all([
+  const [locations, prefs, products] = await Promise.all([
     listLocations(supabase, household.id),
     user
       ? getOrCreateUserPreferences(supabase, user.id)
       : Promise.resolve(null),
+    listProducts(supabase, household.id),
   ]);
 
   return (
@@ -43,6 +46,8 @@ export default async function HogarPage() {
         initialDays={prefs?.default_expiry_warning_days ?? 3}
         vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
       />
+
+      <TypesSettings products={products} />
 
       <section className="space-y-2">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

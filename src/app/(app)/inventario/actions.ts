@@ -14,7 +14,14 @@ import {
   insertStockItem,
   updateStockItem,
 } from "@/lib/db/stock-items";
-import { UNITS, type Unit } from "@/lib/database.types";
+import { categorizeProduct } from "@/lib/ai/categorize-product";
+import {
+  DEPARTMENT_ICONS,
+  UNITS,
+  isDepartment,
+  type Department,
+  type Unit,
+} from "@/lib/database.types";
 import { EMPTY_VALUE_SENTINEL, type ActionState } from "./constants";
 
 const INVENTORY_PATH = "/inventario";
@@ -117,6 +124,22 @@ export async function deleteProductAction(productId: string): Promise<void> {
   revalidatePath(INVENTORY_PATH);
 }
 
+export async function setProductActiveAction(
+  productId: string,
+  active: boolean,
+): Promise<ActionState> {
+  try {
+    const supabase = await createClient();
+    await updateProduct(supabase, productId, { is_active: active });
+    revalidatePath(INVENTORY_PATH);
+    revalidatePath("/lista");
+    revalidatePath("/hogar");
+    return { status: "success" };
+  } catch (err) {
+    return { status: "error", message: describeError(err) };
+  }
+}
+
 // ----------------------------------------------------------------------------
 // Alta combinada: crear producto + primer lote en una sola operación.
 // ----------------------------------------------------------------------------
@@ -129,6 +152,8 @@ export type CreateProductWithLotInput = {
     low_stock_threshold: number;
     default_location_id: string | null;
     notes: string | null;
+    department?: Department | null;
+    icon?: string | null;
   };
   lot: {
     quantity: number;
@@ -157,10 +182,31 @@ export async function createProductWithLotAction(
     const supabase = await createClient();
     const household = await requireCurrentHousehold(supabase);
 
+    // Si no llegó department/icon, le pedimos a Claude que categorice.
+    let department: Department | null = isDepartment(input.product.department)
+      ? input.product.department
+      : null;
+    let icon: string | null = input.product.icon ?? null;
+
+    if (!department || !icon) {
+      const ai = await categorizeProduct({
+        name: input.product.name,
+        brand: input.lot.brand,
+      });
+      department = department ?? ai.department;
+      icon = icon ?? ai.icon;
+    }
+
     const product = await insertProduct(supabase, {
       household_id: household.id,
-      ...input.product,
+      name: input.product.name,
+      category: input.product.category,
       unit: normalizeUnit(input.product.unit),
+      low_stock_threshold: input.product.low_stock_threshold,
+      default_location_id: input.product.default_location_id,
+      notes: input.product.notes,
+      department,
+      icon: icon ?? DEPARTMENT_ICONS[department],
     });
 
     await insertStockItem(supabase, {

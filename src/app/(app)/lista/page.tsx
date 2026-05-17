@@ -1,29 +1,40 @@
 import type { Metadata } from "next";
-import { ListChecks, Sparkles } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { requireCurrentHousehold } from "@/lib/db/household";
+import { listLocations } from "@/lib/db/locations";
+import { listProducts } from "@/lib/db/products";
+import { RestockView } from "./_components/restock-view";
 
 export const metadata: Metadata = {
-  title: "Lista",
+  title: "Por reponer",
 };
 
-export default function ListaPage() {
+export default async function ListaPage() {
+  const supabase = await createClient();
+  const household = await requireCurrentHousehold(supabase);
+  const [locations, products] = await Promise.all([
+    listLocations(supabase, household.id),
+    listProducts(supabase, household.id),
+  ]);
+
+  // "Por reponer" = activos sin stock (quantity = 0)
+  // y los que están bajo umbral (con poco stock) también podrían entrar acá,
+  // pero los priorizamos abajo en la misma lista.
+  const restock = products.filter(
+    (p) => p.is_active && Number(p.quantity) <= 0,
+  );
+  const lowStock = products.filter(
+    (p) =>
+      p.is_active &&
+      Number(p.quantity) > 0 &&
+      Number(p.quantity) <= Number(p.low_stock_threshold),
+  );
+
   return (
-    <div className="flex flex-col items-center justify-center gap-4 px-6 py-20 text-center">
-      <div className="relative">
-        <div className="size-20 rounded-full bg-warning/20 flex items-center justify-center">
-          <ListChecks className="size-10 text-warning-foreground" strokeWidth={1.5} />
-        </div>
-        <Sparkles className="absolute -top-1 -right-1 size-5 text-warning" />
-      </div>
-      <div className="space-y-1 max-w-xs">
-        <h1 className="font-heading text-2xl font-bold">Lista de compras</h1>
-        <p className="text-sm text-muted-foreground">
-          Te vamos a armar la lista automáticamente con todo lo que está bajo
-          umbral. Pronto.
-        </p>
-        <p className="text-xs text-muted-foreground/80 pt-2">
-          Viene en la Fase 4.
-        </p>
-      </div>
-    </div>
+    <RestockView
+      restock={restock}
+      lowStock={lowStock}
+      locations={locations}
+    />
   );
 }

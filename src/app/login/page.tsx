@@ -14,21 +14,33 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <main className="flex-1 flex items-center justify-center p-6">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="items-center text-center">
+    <main className="flex-1 relative flex items-center justify-center p-6 overflow-hidden">
+      {/* Blobs decorativos de fondo, sutiles y filtrados */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-32 -left-24 size-80 rounded-full bg-primary/20 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-32 -right-24 size-96 rounded-full bg-brand-sun/20 blur-3xl"
+      />
+
+      <Card className="w-full max-w-sm relative backdrop-blur-sm">
+        <CardHeader className="items-center text-center pb-2">
           <Image
             src="/logo.png"
             alt="Falta Morfi"
-            width={200}
-            height={200}
+            width={240}
+            height={240}
             priority
-            className="size-40"
+            className="size-44 drop-shadow-md"
           />
-          <CardDescription>
-            Ingresá tu email y te mandamos un link mágico para entrar. Sin
-            contraseñas.
+          <CardDescription className="text-base">
+            Tu despensa, siempre al día.
           </CardDescription>
+          <p className="text-xs text-muted-foreground pt-1">
+            Entrá con Google o pedí un link mágico por email.
+          </p>
         </CardHeader>
         <CardContent>
           <LoginForm />

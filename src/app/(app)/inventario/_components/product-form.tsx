@@ -33,6 +33,7 @@ export type ProductFormDefaults = {
   default_location_id?: string | null;
   barcode?: string;
   notes?: string;
+  image_url?: string | null;
 };
 
 type Props = {
@@ -78,6 +79,7 @@ export function ProductForm({
   return (
     <form key={formKey} action={formAction} className="space-y-3">
       {product && <input type="hidden" name="id" value={product.id} />}
+      <input type="hidden" name="image_url" defaultValue={defaults.image_url ?? ""} />
 
       <Field id="name" label="Nombre" required>
         <Input
@@ -228,6 +230,7 @@ function buildDefaults(
       default_location_id: product.default_location_id ?? NO_LOCATION_VALUE,
       barcode: product.barcode ?? "",
       notes: product.notes ?? "",
+      image_url: product.image_url,
     };
   }
   return {
@@ -240,6 +243,7 @@ function buildDefaults(
     default_location_id: initial?.default_location_id ?? NO_LOCATION_VALUE,
     barcode: initial?.barcode ?? "",
     notes: initial?.notes ?? "",
+    image_url: initial?.image_url ?? null,
   };
 }
 

@@ -97,6 +97,7 @@ export function InventoryView({ householdName, locations, products }: Props) {
               name: off.name ?? "",
               brand: off.brand ?? "",
               category: off.category ?? "",
+              image_url: off.imageUrl,
             };
           }
         } catch (err) {
@@ -116,14 +117,16 @@ export function InventoryView({ householdName, locations, products }: Props) {
   return (
     <div className="flex flex-col gap-4 px-4 py-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1 min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Inventario</h1>
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <h1 className="font-heading text-3xl font-bold tracking-tight">
+            Inventario
+          </h1>
           <p className="text-sm text-muted-foreground truncate">
             {householdName} · {products.length} productos
             {lowStockCount > 0 && (
-              <span className="text-destructive">
+              <span className="text-warning-foreground/80">
                 {" · "}
-                {lowStockCount} con stock bajo
+                <span className="font-medium">{lowStockCount}</span> con stock bajo
               </span>
             )}
           </p>
@@ -135,12 +138,12 @@ export function InventoryView({ householdName, locations, products }: Props) {
           onClick={openScanner}
           disabled={lookupPending}
           aria-label="Escanear código"
-          className="shrink-0"
+          className="shrink-0 size-11"
         >
           {lookupPending ? (
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="size-5 animate-spin" />
           ) : (
-            <ScanLine className="size-4" />
+            <ScanLine className="size-5" />
           )}
         </Button>
       </div>
@@ -185,7 +188,7 @@ export function InventoryView({ householdName, locations, products }: Props) {
           onScan={openScanner}
         />
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2 animate-in fade-in duration-300">
           {filtered.map((p) => (
             <li key={p.id}>
               <ProductCard product={p} onClick={() => setSelected(p)} />
@@ -197,7 +200,7 @@ export function InventoryView({ householdName, locations, products }: Props) {
       <Button
         type="button"
         size="lg"
-        className="fixed bottom-20 right-4 size-14 rounded-full shadow-lg z-10"
+        className="fixed bottom-20 right-4 size-14 rounded-full shadow-xl shadow-primary/30 z-10 hover:scale-105 active:scale-95 transition-transform"
         onClick={openAddManual}
         aria-label="Agregar producto"
       >
@@ -240,19 +243,27 @@ function EmptyState({
   onScan: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="text-muted-foreground">
-        {hasProducts
-          ? "No hay productos que coincidan con el filtro."
-          : "Todavía no cargaste nada. Escaneá un producto o agregá uno a mano."}
-      </p>
+    <div className="flex flex-col items-center justify-center gap-4 py-16 px-4 text-center">
+      <div className="size-20 rounded-full bg-primary/10 flex items-center justify-center">
+        <ScanLine className="size-10 text-primary" strokeWidth={1.5} />
+      </div>
+      <div className="space-y-1 max-w-xs">
+        <h2 className="font-heading text-lg font-semibold">
+          {hasProducts ? "Nada por acá" : "Arranquemos a cargar"}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {hasProducts
+            ? "Cambiá el filtro o la búsqueda para encontrar lo que buscás."
+            : "Escaneá un código de barras o agregá un producto a mano para empezar."}
+        </p>
+      </div>
       {!hasProducts && (
         <div className="flex gap-2">
-          <Button onClick={onScan}>
+          <Button onClick={onScan} size="lg">
             <ScanLine className="size-4" />
             Escanear
           </Button>
-          <Button variant="outline" onClick={onAdd}>
+          <Button variant="outline" onClick={onAdd} size="lg">
             <Plus className="size-4" />
             Agregar
           </Button>

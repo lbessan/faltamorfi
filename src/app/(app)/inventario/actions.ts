@@ -72,6 +72,7 @@ export async function addProductAction(
       low_stock_threshold: asNumber(formData.get("low_stock_threshold"), 1),
       default_location_id: asNullableString(formData.get("default_location_id")),
       barcode: asNullableString(formData.get("barcode")),
+      image_url: asNullableString(formData.get("image_url")),
       notes: asNullableString(formData.get("notes")),
     });
 
@@ -109,6 +110,7 @@ export async function updateProductAction(
       low_stock_threshold: asNumber(formData.get("low_stock_threshold"), 1),
       default_location_id: asNullableString(formData.get("default_location_id")),
       barcode: asNullableString(formData.get("barcode")),
+      image_url: asNullableString(formData.get("image_url")),
       notes: asNullableString(formData.get("notes")),
     });
 

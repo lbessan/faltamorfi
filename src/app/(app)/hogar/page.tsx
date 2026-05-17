@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Home } from "lucide-react";
+import { Home, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireCurrentHousehold } from "@/lib/db/household";
 import { listLocations } from "@/lib/db/locations";
@@ -19,29 +19,30 @@ export default async function HogarPage() {
   return (
     <div className="px-4 py-4 space-y-6">
       <div className="flex items-center gap-3">
-        <div className="rounded-full bg-muted p-3">
-          <Home className="size-6 text-muted-foreground" />
+        <div className="size-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+          <Home className="size-7 text-primary" strokeWidth={1.5} />
         </div>
-        <div>
-          <h1 className="text-xl font-semibold">{household.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            Sesión: {user?.email}
-          </p>
+        <div className="min-w-0">
+          <h1 className="font-heading text-2xl font-bold truncate">
+            {household.name}
+          </h1>
+          <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
         </div>
       </div>
 
-      <section>
-        <h2 className="text-sm font-medium text-muted-foreground mb-2">
+      <section className="space-y-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Ubicaciones
         </h2>
-        <ul className="rounded-lg border border-border divide-y divide-border">
+        <ul className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
           {locations.map((loc) => (
-            <li key={loc.id} className="px-4 py-3 text-sm">
-              {loc.name}
+            <li key={loc.id} className="px-4 py-3 flex items-center gap-3">
+              <MapPin className="size-4 text-muted-foreground shrink-0" />
+              <span className="text-sm">{loc.name}</span>
             </li>
           ))}
         </ul>
-        <p className="text-xs text-muted-foreground mt-2">
+        <p className="text-xs text-muted-foreground/80 px-1 pt-1">
           La edición de ubicaciones y la invitación de familiares vienen en la
           Fase 5.
         </p>

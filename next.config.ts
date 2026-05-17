@@ -3,7 +3,16 @@ import withSerwistInit from "@serwist/next";
 
 const isProd = process.env.NODE_ENV === "production";
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      // Imágenes de productos de Open Food Facts
+      { protocol: "https", hostname: "images.openfoodfacts.org" },
+      { protocol: "https", hostname: "world.openfoodfacts.org" },
+      { protocol: "https", hostname: "static.openfoodfacts.org" },
+    ],
+  },
+};
 
 const withSerwist = withSerwistInit({
   swSrc: "src/app/sw.ts",

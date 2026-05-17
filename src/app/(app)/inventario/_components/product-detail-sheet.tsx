@@ -292,6 +292,8 @@ function ViewMode({
             <LotForm
               productId={product.id}
               productName={product.name}
+              productBrand={product.brand}
+              productCategory={product.category}
               locations={locations}
               defaultLocationId={product.default_location_id}
               onClose={closeLotForm}
@@ -328,6 +330,8 @@ function ViewMode({
                     <LotForm
                       productId={product.id}
                       productName={product.name}
+                      productBrand={product.brand}
+                      productCategory={product.category}
                       locations={locations}
                       lot={lot}
                       onClose={closeLotForm}

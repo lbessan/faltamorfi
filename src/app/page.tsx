@@ -1,5 +1,6 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
-import { LogOut, Package } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,8 +26,15 @@ export default async function HomePage() {
       <header className="border-b border-border">
         <div className="max-w-3xl mx-auto w-full flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
-            <Package className="size-5" />
-            <span className="font-semibold">Falta Morfi</span>
+            <Image
+              src="/logo.png"
+              alt="Falta Morfi"
+              width={40}
+              height={40}
+              priority
+              className="size-10"
+            />
+            <span className="sr-only">Falta Morfi</span>
           </div>
           <form action="/auth/signout" method="post">
             <Button type="submit" variant="ghost" size="sm">

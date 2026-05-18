@@ -1,10 +1,17 @@
 /**
- * Cliente del Open Food Facts API (REST público, sin auth).
+ * Cliente del Open Food Facts API + capa de normalización con Claude.
  *
- * Docs: https://openfoodfacts.github.io/openfoodfacts-server/api/
+ * Hay dos funciones:
  *
- * Devolvemos `null` cuando el producto no está en su base — el caller puede
- * caer en alta manual con solo el barcode prellenado.
+ * 1. `lookupBarcodeViaOFF` — server-only. Hace el fetch directo a OFF y
+ *    devuelve el resultado crudo (sin pasar por Claude).
+ *
+ * 2. `lookupBarcode` — para usar desde el cliente. Llama a nuestro endpoint
+ *    `/api/off/lookup`, que internamente hace (1) + normalización con IA.
+ *    Devuelve el mismo shape pero con `name`, `brand` y nuevo `suggestedType`
+ *    normalizados.
+ *
+ * Docs OFF: https://openfoodfacts.github.io/openfoodfacts-server/api/
  */
 
 export type OffLookupResult = {
@@ -13,7 +20,11 @@ export type OffLookupResult = {
   brand: string | null;
   category: string | null;
   imageUrl: string | null;
-  quantityDescription: string | null; // ej. "1 L" o "500 g"
+  quantityDescription: string | null;
+  /** Tipo genérico sugerido por la IA (ej. "Leche entera"). null si no se pudo. */
+  suggestedType: string | null;
+  /** True si los campos name/brand pasaron por normalización IA. */
+  normalized: boolean;
 };
 
 const FIELDS = [
@@ -27,13 +38,25 @@ const FIELDS = [
   "quantity",
 ].join(",");
 
-// El UA identifica nuestro cliente — buena práctica con APIs públicas.
 const USER_AGENT = "FaltaMorfi/0.1 (https://github.com/lbessan/faltamorfi)";
 
-export async function lookupBarcode(
+// ----------------------------------------------------------------------------
+// SERVER-ONLY: fetch directo a OFF, sin normalización
+// ----------------------------------------------------------------------------
+
+export type OffRawResult = {
+  barcode: string;
+  name: string | null;
+  brand: string | null;
+  category: string | null;
+  imageUrl: string | null;
+  quantityDescription: string | null;
+};
+
+export async function lookupBarcodeViaOFF(
   barcode: string,
   signal?: AbortSignal,
-): Promise<OffLookupResult | null> {
+): Promise<OffRawResult | null> {
   const clean = barcode.replace(/\s+/g, "");
   if (!/^\d{6,14}$/.test(clean)) return null;
 
@@ -48,7 +71,7 @@ export async function lookupBarcode(
       signal,
     });
   } catch {
-    return null; // red caída / abortado
+    return null;
   }
 
   if (!res.ok) return null;
@@ -68,11 +91,9 @@ export async function lookupBarcode(
   };
 
   const data = (await res.json()) as OffResponse;
-
   if (data.status !== 1 || !data.product) return null;
 
   const p = data.product;
-
   return {
     barcode: clean,
     name: pickName(p),
@@ -82,6 +103,40 @@ export async function lookupBarcode(
     quantityDescription: p.quantity?.trim() || null,
   };
 }
+
+// ----------------------------------------------------------------------------
+// CLIENTE: llama al endpoint /api/off/lookup (que aplica normalización)
+// ----------------------------------------------------------------------------
+
+export async function lookupBarcode(
+  barcode: string,
+  signal?: AbortSignal,
+): Promise<OffLookupResult | null> {
+  const clean = barcode.replace(/\s+/g, "");
+  if (!/^\d{6,14}$/.test(clean)) return null;
+
+  let res: Response;
+  try {
+    res = await fetch(`/api/off/lookup?barcode=${encodeURIComponent(clean)}`, {
+      signal,
+    });
+  } catch {
+    return null;
+  }
+
+  if (res.status === 404) return null;
+  if (!res.ok) return null;
+
+  try {
+    return (await res.json()) as OffLookupResult;
+  } catch {
+    return null;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Helpers
+// ----------------------------------------------------------------------------
 
 function pickName(p: {
   product_name?: string;
@@ -104,7 +159,6 @@ function pickFirstBrand(brands?: string): string | null {
 
 function pickCategory(tags?: string[]): string | null {
   if (!tags?.length) return null;
-  // Preferimos tag en español, fallback a inglés.
   const es = tags.find((t) => t.startsWith("es:"));
   const en = tags.find((t) => t.startsWith("en:"));
   const chosen = es ?? en ?? tags[0];
@@ -112,8 +166,9 @@ function pickCategory(tags?: string[]): string | null {
 }
 
 function humanizeTag(tag: string): string {
-  // "es:productos-lacteos" → "Productos lacteos"
-  const withoutPrefix = tag.includes(":") ? tag.split(":").slice(1).join(":") : tag;
+  const withoutPrefix = tag.includes(":")
+    ? tag.split(":").slice(1).join(":")
+    : tag;
   const words = withoutPrefix.replace(/-/g, " ").trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }

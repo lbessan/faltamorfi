@@ -145,7 +145,13 @@ export function InventoryView({
               brand: off.brand,
               image_url: off.imageUrl,
             };
-            if (off.name) {
+            // El suggestedType de la IA es mucho mejor que el name raw para
+            // matchear contra el catálogo del hogar. Si lo tenemos, lo usamos
+            // primero; si no, caemos al fuzzy match con el name.
+            if (off.suggestedType) {
+              suggested = findClosestProductMatch(off.suggestedType, products);
+            }
+            if (!suggested && off.name) {
               suggested = findClosestProductMatch(off.name, products);
             }
             if (!suggested && off.category) {

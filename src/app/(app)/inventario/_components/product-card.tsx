@@ -10,6 +10,7 @@ import {
   predictDaysLeft,
   type ConsumptionRate,
 } from "@/lib/db/predictions";
+import { effectiveExpiry } from "@/lib/expiry";
 import { DynamicIcon } from "@/lib/icon-map";
 
 type Props = {
@@ -225,23 +226,6 @@ function nextExpirationInfo(
     })}`,
     urgent: false,
   };
-}
-
-function effectiveExpiry(lot: LotSummary): Date | null {
-  const explicit = lot.expires_on
-    ? new Date(`${lot.expires_on}T00:00:00`)
-    : null;
-  let freezerLimit: Date | null = null;
-  if (lot.frozen_at && lot.frozen_max_days) {
-    const base = new Date(lot.frozen_at);
-    freezerLimit = new Date(
-      base.getTime() + lot.frozen_max_days * 24 * 60 * 60 * 1000,
-    );
-  }
-  if (explicit && freezerLimit) {
-    return explicit < freezerLimit ? explicit : freezerLimit;
-  }
-  return explicit ?? freezerLimit;
 }
 
 function formatQuantity(n: number): string {

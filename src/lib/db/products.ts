@@ -12,6 +12,8 @@ export type LotSummary = {
   expires_on: string | null;
   frozen_at: string | null;
   frozen_max_days: number | null;
+  opened_at: string | null;
+  opened_max_days: number | null;
   brand: string | null;
   barcode: string | null;
   image_url: string | null;
@@ -25,7 +27,7 @@ export type ProductWithLocation = Product & {
 const PRODUCT_SELECT = `
   *,
   location:locations!products_default_location_id_fkey(id, name, icon),
-  lots:stock_items(id, quantity, expires_on, frozen_at, frozen_max_days, brand, barcode, image_url)
+  lots:stock_items(id, quantity, expires_on, frozen_at, frozen_max_days, opened_at, opened_max_days, brand, barcode, image_url)
 `;
 
 export async function listProducts(

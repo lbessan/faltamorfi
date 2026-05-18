@@ -44,7 +44,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 border-t border-border bg-background/95 backdrop-blur-md z-20 pb-[env(safe-area-inset-bottom)]"
+      className="md:hidden fixed bottom-0 inset-x-0 border-t border-border bg-background/95 backdrop-blur-md z-20 pb-[env(safe-area-inset-bottom)]"
       aria-label="Navegación principal"
     >
       <ul className="max-w-3xl mx-auto w-full grid grid-cols-4 px-1">
@@ -66,13 +66,13 @@ export function BottomNav() {
                   className={cn(
                     "flex items-center justify-center rounded-full transition-all duration-200",
                     active
-                      ? "h-9 px-6 bg-primary text-primary-foreground shadow-brand"
-                      : "h-9 px-4",
+                      ? "h-10 px-7 bg-primary text-primary-foreground shadow-brand"
+                      : "h-10 px-5",
                   )}
                 >
                   <Icon
                     className={cn(
-                      "size-5 transition-all",
+                      "size-6 transition-all",
                       active && "stroke-[2.5]",
                     )}
                   />

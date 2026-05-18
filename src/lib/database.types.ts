@@ -213,6 +213,8 @@ export type Database = {
           expires_on: string | null;
           frozen_at: string | null;
           frozen_max_days: number | null;
+          opened_at: string | null;
+          opened_max_days: number | null;
           brand: string | null;
           barcode: string | null;
           image_url: string | null;
@@ -228,6 +230,8 @@ export type Database = {
           expires_on?: string | null;
           frozen_at?: string | null;
           frozen_max_days?: number | null;
+          opened_at?: string | null;
+          opened_max_days?: number | null;
           brand?: string | null;
           barcode?: string | null;
           image_url?: string | null;
@@ -243,6 +247,8 @@ export type Database = {
           expires_on?: string | null;
           frozen_at?: string | null;
           frozen_max_days?: number | null;
+          opened_at?: string | null;
+          opened_max_days?: number | null;
           brand?: string | null;
           barcode?: string | null;
           image_url?: string | null;

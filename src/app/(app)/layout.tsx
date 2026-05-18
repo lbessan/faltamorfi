@@ -5,6 +5,7 @@ import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { BottomNav } from "@/components/bottom-nav";
+import { SidebarNav } from "@/components/sidebar-nav";
 
 export default async function AppLayout({
   children,
@@ -21,38 +22,45 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="flex-1 flex flex-col">
-      <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur z-10">
-        <div className="max-w-3xl mx-auto w-full flex items-center justify-between px-4 py-3">
-          <Link
-            href="/inventario"
-            className="flex items-center gap-2 group"
-            aria-label="Falta Morfi - Inventario"
-          >
-            <span className="inline-flex items-center justify-center size-10 rounded-2xl bg-primary/10 ring-1 ring-primary/20 transition-transform group-active:scale-95">
-              <Image
-                src="/logo.png"
-                alt=""
-                width={40}
-                height={40}
-                priority
-                className="size-9"
-              />
-            </span>
-            <span className="font-heading font-bold text-lg tracking-tight hidden xs:inline">
-              Falta Morfi
-            </span>
-          </Link>
-          <form action="/auth/signout" method="post">
-            <Button type="submit" variant="ghost" size="sm">
-              <LogOut className="size-4" />
-              <span className="hidden sm:inline">Salir</span>
-            </Button>
-          </form>
-        </div>
-      </header>
+    <div className="flex-1 flex min-h-screen w-full">
+      <SidebarNav />
 
-      <main className="flex-1 max-w-3xl mx-auto w-full pb-24">{children}</main>
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header mobile: solo en md- (en desktop el branding vive en el sidebar) */}
+        <header className="md:hidden border-b border-border sticky top-0 bg-background/95 backdrop-blur z-10">
+          <div className="max-w-3xl mx-auto w-full flex items-center justify-between px-4 py-3">
+            <Link
+              href="/inventario"
+              className="flex items-center gap-2 group"
+              aria-label="Falta Morfi - Inventario"
+            >
+              <span className="inline-flex items-center justify-center size-10 rounded-2xl bg-primary/10 ring-1 ring-primary/20 transition-transform group-active:scale-95">
+                <Image
+                  src="/logo.png"
+                  alt=""
+                  width={40}
+                  height={40}
+                  priority
+                  className="size-9"
+                />
+              </span>
+              <span className="font-heading font-semibold text-lg tracking-tight hidden xs:inline">
+                Falta Morfi
+              </span>
+            </Link>
+            <form action="/auth/signout" method="post">
+              <Button type="submit" variant="ghost" size="sm">
+                <LogOut className="size-4" />
+                <span className="hidden sm:inline">Salir</span>
+              </Button>
+            </form>
+          </div>
+        </header>
+
+        <main className="flex-1 max-w-3xl mx-auto w-full pb-24 md:pb-6">
+          {children}
+        </main>
+      </div>
 
       <BottomNav />
     </div>

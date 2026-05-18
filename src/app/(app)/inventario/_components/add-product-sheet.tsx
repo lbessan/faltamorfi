@@ -278,6 +278,8 @@ function CreateForm({
           expires_on: expiresOn || null,
           frozen_at: null,
           frozen_max_days: null,
+          opened_at: null,
+          opened_max_days: null,
           brand: brand.trim() || null,
           barcode: barcode.trim() || null,
           image_url: prefill?.image_url ?? null,

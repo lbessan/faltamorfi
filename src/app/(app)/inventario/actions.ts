@@ -161,6 +161,8 @@ export type CreateProductWithLotInput = {
     expires_on: string | null;
     frozen_at: string | null;
     frozen_max_days: number | null;
+    opened_at: string | null;
+    opened_max_days: number | null;
     brand: string | null;
     barcode: string | null;
     image_url: string | null;
@@ -217,6 +219,8 @@ export async function createProductWithLotAction(
       expires_on: input.lot.expires_on,
       frozen_at: input.lot.frozen_at,
       frozen_max_days: input.lot.frozen_max_days,
+      opened_at: input.lot.opened_at,
+      opened_max_days: input.lot.opened_max_days,
       brand: input.lot.brand,
       barcode: input.lot.barcode,
       image_url: input.lot.image_url,
@@ -261,6 +265,8 @@ export type LotInput = {
   expires_on?: string | null;
   frozen_at?: string | null;
   frozen_max_days?: number | null;
+  opened_at?: string | null;
+  opened_max_days?: number | null;
   brand?: string | null;
   barcode?: string | null;
   image_url?: string | null;
@@ -284,6 +290,8 @@ export async function addLotAction(input: LotInput): Promise<ActionState> {
       expires_on: input.expires_on ?? null,
       frozen_at: input.frozen_at ?? null,
       frozen_max_days: input.frozen_max_days ?? null,
+      opened_at: input.opened_at ?? null,
+      opened_max_days: input.opened_max_days ?? null,
       brand: input.brand ?? null,
       barcode: input.barcode ?? null,
       image_url: input.image_url ?? null,
@@ -309,6 +317,8 @@ export async function updateLotAction(
       expires_on: patch.expires_on,
       frozen_at: patch.frozen_at,
       frozen_max_days: patch.frozen_max_days,
+      opened_at: patch.opened_at,
+      opened_max_days: patch.opened_max_days,
       brand: patch.brand,
       barcode: patch.barcode,
       image_url: patch.image_url,

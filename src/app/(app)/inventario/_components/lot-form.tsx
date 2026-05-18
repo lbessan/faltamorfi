@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Loader2, ScanLine, Snowflake, Sparkles, X } from "lucide-react";
+import { DoorOpen, Loader2, ScanLine, Snowflake, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +42,7 @@ type Props = {
   onClose: () => void;
 };
 
-type FreezerSuggestion = {
+type LifetimeSuggestion = {
   days: number;
   reason: string;
   confidence: "low" | "medium" | "high";
@@ -62,8 +62,12 @@ export function LotForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [suggesting, setSuggesting] = useState(false);
-  const [suggestion, setSuggestion] = useState<FreezerSuggestion | null>(null);
+  const [suggestingFreezer, setSuggestingFreezer] = useState(false);
+  const [freezerSuggestion, setFreezerSuggestion] =
+    useState<LifetimeSuggestion | null>(null);
+  const [suggestingOpened, setSuggestingOpened] = useState(false);
+  const [openedSuggestion, setOpenedSuggestion] =
+    useState<LifetimeSuggestion | null>(null);
 
   // Estado del form
   const [quantity, setQuantity] = useState<string>(
@@ -96,28 +100,44 @@ export function LotForm({
     lot?.frozen_max_days != null ? String(lot.frozen_max_days) : "",
   );
 
+  const [isOpened, setIsOpened] = useState<boolean>(Boolean(lot?.opened_at));
+  const [openedAt, setOpenedAt] = useState<string>(
+    lot?.opened_at ? lot.opened_at.slice(0, 10) : todayIso(),
+  );
+  const [openedMaxDays, setOpenedMaxDays] = useState<string>(
+    lot?.opened_max_days != null ? String(lot.opened_max_days) : "",
+  );
+
   const selectedLocation = locations.find((l) => l.id === locationId) ?? null;
   const showFreezerFields = isFrozen || selectedLocation?.kind === "freezer";
+  const showOpenedFields = isOpened;
 
-  async function fetchSuggestion() {
+  async function fetchLifetimeSuggestion(
+    endpoint: "freezer-lifetime" | "opened-lifetime",
+  ): Promise<LifetimeSuggestion | null> {
+    const res = await fetch(`/api/ai/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: productName,
+        brand: brand || null,
+        category: productCategory ?? null,
+      }),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(data.error ?? `HTTP ${res.status}`);
+    }
+    return (await res.json()) as LifetimeSuggestion;
+  }
+
+  async function fetchFreezerSuggestion() {
     setError(null);
-    setSuggesting(true);
+    setSuggestingFreezer(true);
     try {
-      const res = await fetch("/api/ai/freezer-lifetime", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: productName,
-          brand: brand || null,
-          category: productCategory ?? null,
-        }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as FreezerSuggestion;
-      setSuggestion(data);
+      const data = await fetchLifetimeSuggestion("freezer-lifetime");
+      if (!data) return;
+      setFreezerSuggestion(data);
       if (data.days > 0) {
         setFrozenMaxDays(String(data.days));
       }
@@ -126,7 +146,26 @@ export function LotForm({
         err instanceof Error ? err.message : "No pudimos obtener la sugerencia.",
       );
     } finally {
-      setSuggesting(false);
+      setSuggestingFreezer(false);
+    }
+  }
+
+  async function fetchOpenedSuggestion() {
+    setError(null);
+    setSuggestingOpened(true);
+    try {
+      const data = await fetchLifetimeSuggestion("opened-lifetime");
+      if (!data) return;
+      setOpenedSuggestion(data);
+      if (data.days > 0) {
+        setOpenedMaxDays(String(data.days));
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No pudimos obtener la sugerencia.",
+      );
+    } finally {
+      setSuggestingOpened(false);
     }
   }
 
@@ -150,6 +189,12 @@ export function LotForm({
           : null,
       frozen_max_days:
         showFreezerFields && frozenMaxDays ? Number(frozenMaxDays) : null,
+      opened_at:
+        showOpenedFields && openedAt
+          ? new Date(`${openedAt}T00:00:00`).toISOString()
+          : null,
+      opened_max_days:
+        showOpenedFields && openedMaxDays ? Number(openedMaxDays) : null,
       brand: brand.trim() || null,
       barcode: barcode.trim() || null,
       image_url: imageUrl || null,
@@ -339,12 +384,12 @@ export function LotForm({
                   type="button"
                   variant="outline"
                   size="icon"
-                  onClick={fetchSuggestion}
-                  disabled={suggesting || !productName}
+                  onClick={fetchFreezerSuggestion}
+                  disabled={suggestingFreezer || !productName}
                   aria-label="Sugerir con IA"
                   title="Sugerir con IA"
                 >
-                  {suggesting ? (
+                  {suggestingFreezer ? (
                     <Loader2 className="size-4 animate-spin" />
                   ) : (
                     <Sparkles className="size-4" />
@@ -353,13 +398,89 @@ export function LotForm({
               </div>
             </div>
           </div>
-          {suggestion && (
+          {freezerSuggestion && (
             <p className="text-xs text-muted-foreground bg-accent/40 border border-border rounded-md px-2 py-1.5">
               <Sparkles className="size-3 inline mr-1 text-primary" />
-              {suggestion.days > 0
-                ? `${suggestion.days} días — ${suggestion.reason}`
-                : `No se recomienda freezar. ${suggestion.reason}`}
-              {suggestion.confidence === "low" && (
+              {freezerSuggestion.days > 0
+                ? `${freezerSuggestion.days} días — ${freezerSuggestion.reason}`
+                : `No se recomienda freezar. ${freezerSuggestion.reason}`}
+              {freezerSuggestion.confidence === "low" && (
+                <span className="text-warning-foreground/80">
+                  {" "}
+                  (confianza baja, verificá si dudás)
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setIsOpened((v) => !v)}
+        className={`w-full flex items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors ${
+          isOpened
+            ? "border-primary/50 bg-primary/10 text-primary"
+            : "border-border text-muted-foreground hover:bg-accent/40"
+        }`}
+        aria-pressed={isOpened}
+      >
+        <span className="inline-flex items-center gap-2">
+          <DoorOpen className="size-4" />
+          Abierto en heladera
+        </span>
+        <span className="text-xs">{isOpened ? "Sí" : "No"}</span>
+      </button>
+
+      {showOpenedFields && (
+        <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="lot-opened-at">Abierto el</Label>
+              <Input
+                id="lot-opened-at"
+                type="date"
+                value={openedAt}
+                onChange={(e) => setOpenedAt(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lot-opened-max">Máx. días abierto</Label>
+              <div className="flex gap-1">
+                <Input
+                  id="lot-opened-max"
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  placeholder="Ej. 5"
+                  value={openedMaxDays}
+                  onChange={(e) => setOpenedMaxDays(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={fetchOpenedSuggestion}
+                  disabled={suggestingOpened || !productName}
+                  aria-label="Sugerir con IA"
+                  title="Sugerir con IA"
+                >
+                  {suggestingOpened ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="size-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+          {openedSuggestion && (
+            <p className="text-xs text-muted-foreground bg-accent/40 border border-border rounded-md px-2 py-1.5">
+              <Sparkles className="size-3 inline mr-1 text-primary" />
+              {openedSuggestion.days > 0
+                ? `${openedSuggestion.days} días — ${openedSuggestion.reason}`
+                : `Consumir al instante. ${openedSuggestion.reason}`}
+              {openedSuggestion.confidence === "low" && (
                 <span className="text-warning-foreground/80">
                   {" "}
                   (confianza baja, verificá si dudás)

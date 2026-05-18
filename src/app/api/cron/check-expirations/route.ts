@@ -13,6 +13,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { parseSubscription, sendPush, type PushPayload } from "@/lib/notifications/push";
+import { effectiveExpiry } from "@/lib/expiry";
 
 export const runtime = "nodejs";
 // El cron tarda unos segundos si hay usuarios — damos margen.
@@ -53,6 +54,8 @@ type LotRow = {
   expires_on: string | null;
   frozen_at: string | null;
   frozen_max_days: number | null;
+  opened_at: string | null;
+  opened_max_days: number | null;
   products: {
     name: string;
     household_id: string;
@@ -105,11 +108,11 @@ async function runExpirationCheck(): Promise<Summary> {
 
     const householdIds = memberships.map((m) => m.household_id);
 
-    // 3. Cargar lotes con vencimiento o freezer asignado de los hogares.
+    // 3. Cargar lotes con vencimiento, freezer o abierto-en-heladera de los hogares.
     const { data: lots, error: lotsError } = await supabase
       .from("stock_items")
       .select(
-        "id, product_id, quantity, expires_on, frozen_at, frozen_max_days, products!inner(name, household_id)",
+        "id, product_id, quantity, expires_on, frozen_at, frozen_max_days, opened_at, opened_max_days, products!inner(name, household_id)",
       )
       .in("products.household_id", householdIds)
       .gt("quantity", 0);
@@ -153,7 +156,7 @@ function bucketize(lots: LotRow[], warningDays: number): Buckets {
   const soon: Buckets["soon"] = [];
 
   for (const lot of lots) {
-    const effective = effectiveExpiryDate(lot);
+    const effective = effectiveExpiry(lot);
     if (!effective) continue;
     const days = diffDays(effective, now);
     const name = lot.products?.name ?? "(producto)";
@@ -192,23 +195,6 @@ function composePayload(buckets: Buckets, warningDays: number): PushPayload {
     url: "/inventario",
     tag: "expirations",
   };
-}
-
-function effectiveExpiryDate(lot: LotRow): Date | null {
-  const explicit = lot.expires_on
-    ? new Date(`${lot.expires_on}T00:00:00`)
-    : null;
-  let freezerLimit: Date | null = null;
-  if (lot.frozen_at && lot.frozen_max_days) {
-    const base = new Date(lot.frozen_at);
-    freezerLimit = new Date(
-      base.getTime() + lot.frozen_max_days * 24 * 60 * 60 * 1000,
-    );
-  }
-  if (explicit && freezerLimit) {
-    return explicit < freezerLimit ? explicit : freezerLimit;
-  }
-  return explicit ?? freezerLimit;
 }
 
 function startOfDay(d: Date): Date {

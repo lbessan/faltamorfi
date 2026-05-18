@@ -22,6 +22,7 @@ import {
   addOrIncrementForProduct,
   listShoppingItems,
 } from "@/lib/db/shopping";
+import { effectiveExpiry } from "@/lib/expiry";
 
 export type ToolContext = {
   supabase: SupabaseClient<Database>;
@@ -150,22 +151,7 @@ const listExpiringSoon: ToolHandler = async (input, ctx) => {
 
   for (const p of products) {
     for (const lot of p.lots) {
-      const explicit = lot.expires_on
-        ? new Date(`${lot.expires_on}T00:00:00`)
-        : null;
-      const freezerLimit =
-        lot.frozen_at && lot.frozen_max_days
-          ? new Date(
-              new Date(lot.frozen_at).getTime() +
-                lot.frozen_max_days * dayMs,
-            )
-          : null;
-      const eff =
-        explicit && freezerLimit
-          ? explicit.getTime() < freezerLimit.getTime()
-            ? explicit
-            : freezerLimit
-          : (explicit ?? freezerLimit);
+      const eff = effectiveExpiry(lot);
       if (!eff) continue;
       if (eff.getTime() > horizon) continue;
       if (Number(lot.quantity) <= 0) continue;
@@ -452,27 +438,9 @@ function brandsFor(p: ProductWithLocation): string[] {
 }
 
 function nextExpiryFor(p: ProductWithLocation): string | null {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const dayMs = 24 * 60 * 60 * 1000;
   let earliest: Date | null = null;
   for (const lot of p.lots) {
-    const explicit = lot.expires_on
-      ? new Date(`${lot.expires_on}T00:00:00`)
-      : null;
-    const freezerLimit =
-      lot.frozen_at && lot.frozen_max_days
-        ? new Date(
-            new Date(lot.frozen_at).getTime() +
-              lot.frozen_max_days * dayMs,
-          )
-        : null;
-    const eff =
-      explicit && freezerLimit
-        ? explicit.getTime() < freezerLimit.getTime()
-          ? explicit
-          : freezerLimit
-        : (explicit ?? freezerLimit);
+    const eff = effectiveExpiry(lot);
     if (!eff) continue;
     if (!earliest || eff.getTime() < earliest.getTime()) earliest = eff;
   }

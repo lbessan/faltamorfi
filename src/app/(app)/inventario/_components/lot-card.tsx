@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   CalendarClock,
+  DoorOpen,
   Loader2,
   MapPin,
   Pencil,
@@ -15,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UNIT_LABELS, type Unit } from "@/lib/database.types";
 import type { StockItemWithLocation } from "@/lib/db/stock-items";
+import { effectiveExpiry as computeEffectiveExpiry } from "@/lib/expiry";
 import { deleteLotAction } from "../actions";
 
 type Props = {
@@ -106,6 +108,13 @@ export function LotCard({ lot, unit, warningDays, onEdit }: Props) {
                 {lot.frozen_max_days && ` · máx ${lot.frozen_max_days}d`}
               </span>
             )}
+            {lot.opened_at && (
+              <span className="inline-flex items-center gap-1 text-primary">
+                <DoorOpen className="size-3" />
+                Abierto {formatShortDate(lot.opened_at)}
+                {lot.opened_max_days && ` · máx ${lot.opened_max_days}d`}
+              </span>
+            )}
           </div>
         </div>
 
@@ -176,18 +185,7 @@ type ExpirationStatus =
   | { kind: "ok"; days: number };
 
 function effectiveExpiry(lot: StockItemWithLocation): Date | null {
-  const explicit = lot.expires_on ? new Date(`${lot.expires_on}T00:00:00`) : null;
-  let freezerLimit: Date | null = null;
-  if (lot.frozen_at && lot.frozen_max_days) {
-    const base = new Date(lot.frozen_at);
-    freezerLimit = new Date(
-      base.getTime() + lot.frozen_max_days * 24 * 60 * 60 * 1000,
-    );
-  }
-  if (explicit && freezerLimit) {
-    return explicit < freezerLimit ? explicit : freezerLimit;
-  }
-  return explicit ?? freezerLimit;
+  return computeEffectiveExpiry(lot);
 }
 
 function expirationStatus(

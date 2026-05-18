@@ -47,7 +47,7 @@ export function BottomNav() {
       className="fixed bottom-0 inset-x-0 border-t border-border bg-background/95 backdrop-blur-md z-20 pb-[env(safe-area-inset-bottom)]"
       aria-label="Navegación principal"
     >
-      <ul className="max-w-3xl mx-auto w-full grid grid-cols-4">
+      <ul className="max-w-3xl mx-auto w-full grid grid-cols-4 px-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon, match }) => {
           const active = match(pathname);
           return (
@@ -55,17 +55,19 @@ export function BottomNav() {
               <Link
                 href={href}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1 py-2.5 text-xs transition-colors",
+                  "relative flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] transition-colors",
                   active
-                    ? "text-primary"
+                    ? "text-primary font-semibold"
                     : "text-muted-foreground hover:text-foreground",
                 )}
                 aria-current={active ? "page" : undefined}
               >
                 <span
                   className={cn(
-                    "flex items-center justify-center rounded-full px-3 py-1 transition-all",
-                    active && "bg-primary/10",
+                    "flex items-center justify-center rounded-full transition-all duration-200",
+                    active
+                      ? "h-9 px-6 bg-primary text-primary-foreground shadow-brand"
+                      : "h-9 px-4",
                   )}
                 >
                   <Icon
@@ -75,7 +77,7 @@ export function BottomNav() {
                     )}
                   />
                 </span>
-                <span className={cn(active && "font-medium")}>{label}</span>
+                <span>{label}</span>
               </Link>
             </li>
           );

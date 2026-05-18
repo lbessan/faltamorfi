@@ -24,16 +24,24 @@ export default async function AppLayout({
     <div className="flex-1 flex flex-col">
       <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur z-10">
         <div className="max-w-3xl mx-auto w-full flex items-center justify-between px-4 py-3">
-          <Link href="/inventario" className="flex items-center gap-2">
-            <Image
-              src="/logo.png"
-              alt="Falta Morfi"
-              width={40}
-              height={40}
-              priority
-              className="size-9"
-            />
-            <span className="sr-only">Falta Morfi</span>
+          <Link
+            href="/inventario"
+            className="flex items-center gap-2 group"
+            aria-label="Falta Morfi - Inventario"
+          >
+            <span className="inline-flex items-center justify-center size-10 rounded-2xl bg-primary/10 ring-1 ring-primary/20 transition-transform group-active:scale-95">
+              <Image
+                src="/logo.png"
+                alt=""
+                width={40}
+                height={40}
+                priority
+                className="size-9"
+              />
+            </span>
+            <span className="font-heading font-bold text-lg tracking-tight hidden xs:inline">
+              Falta Morfi
+            </span>
           </Link>
           <form action="/auth/signout" method="post">
             <Button type="submit" variant="ghost" size="sm">

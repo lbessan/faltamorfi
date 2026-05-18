@@ -187,14 +187,16 @@ function DepartmentBlock({
 }) {
   return (
     <section className="space-y-2">
-      <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        <DynamicIcon
-          name={DEPARTMENT_ICONS[department]}
-          className="size-4"
-          strokeWidth={2}
-        />
+      <h2 className="flex items-center gap-2 text-sm font-heading font-bold text-foreground">
+        <span className="inline-flex items-center justify-center size-7 rounded-full bg-primary/15 text-primary">
+          <DynamicIcon
+            name={DEPARTMENT_ICONS[department]}
+            className="size-4"
+            strokeWidth={2.2}
+          />
+        </span>
         {DEPARTMENT_LABELS[department]}
-        <span className="text-muted-foreground/60 normal-case">
+        <span className="text-muted-foreground/60 font-normal text-xs">
           ({items.length})
         </span>
       </h2>

@@ -221,14 +221,16 @@ function DepartmentBlock({
 }) {
   return (
     <section className="space-y-2">
-      <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        <DynamicIcon
-          name={DEPARTMENT_ICONS[department]}
-          className="size-4"
-          strokeWidth={2}
-        />
+      <h2 className="flex items-center gap-2 text-sm font-heading font-bold text-foreground">
+        <span className="inline-flex items-center justify-center size-7 rounded-full bg-primary/15 text-primary">
+          <DynamicIcon
+            name={DEPARTMENT_ICONS[department]}
+            className="size-4"
+            strokeWidth={2.2}
+          />
+        </span>
         {DEPARTMENT_LABELS[department]}
-        <span className="text-muted-foreground/60 normal-case">
+        <span className="text-muted-foreground/60 font-normal text-xs">
           ({items.length})
         </span>
       </h2>
@@ -361,11 +363,16 @@ function RestockRow({
 function CelebrateEmpty() {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-16 px-4 text-center">
-      <div className="size-20 rounded-full bg-primary/10 flex items-center justify-center">
-        <ListChecks className="size-10 text-primary" strokeWidth={1.5} />
+      <div className="relative">
+        <div className="size-24 rounded-full bg-brand-gradient flex items-center justify-center shadow-brand-lg">
+          <ListChecks className="size-12 text-white" strokeWidth={2} />
+        </div>
+        <span aria-hidden className="absolute -top-1 -right-1 size-5 rounded-full bg-brand-sun ring-2 ring-background" />
       </div>
       <div className="space-y-1 max-w-xs">
-        <h2 className="font-heading text-lg font-semibold">Todo en orden</h2>
+        <h2 className="font-heading text-xl font-bold tracking-tight">
+          Todo en orden
+        </h2>
         <p className="text-sm text-muted-foreground">
           Tus tipos habituales tienen stock y nada está bajo umbral. Cuando algo
           se agote o quede poco, lo vas a ver acá.

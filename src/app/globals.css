@@ -43,6 +43,7 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-brand-sun: var(--brand-sun);
   --color-brand-fire: var(--brand-fire);
+  --color-brand-ink: var(--brand-ink);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -53,112 +54,118 @@
 }
 
 /* ----------------------------------------------------------------------------
- * Paleta inspirada en el logo Falta Morfi:
- *   turquesa (primary)   - acción principal
- *   amarillo (sun)       - warnings / stock bajo
- *   naranja/rojo (fire)  - destructive / sin stock
+ * Paleta inspirada en el logo Falta Morfi (sticker style, colores saturados):
+ *   turquesa (primary) #3FCDD9
+ *   amarillo (sun)     #FFC435
+ *   coral (fire)       #F44760
+ *   azul oscuro (ink)  #1B2E59
  *
- * Tonos calibrados para tener buen contraste con texto blanco/negro.
+ * Cuidado con la accesibilidad: el coral y amarillo NO se usan para texto
+ * sobre fondo claro grande. Sí para acentos, badges, ilustraciones.
  * ----------------------------------------------------------------------------*/
 
 :root {
-  --background: oklch(0.99 0.005 220);
-  --foreground: oklch(0.22 0.04 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.04 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.04 250);
+  /* Fondo cálido tipo cartulina, no blanco puro. */
+  --background: oklch(0.985 0.012 85);
+  --foreground: oklch(0.26 0.08 260);
 
-  /* Primary: turquesa del logo */
-  --primary: oklch(0.7 0.13 210);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.26 0.08 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.26 0.08 260);
+
+  /* Primary: turquesa sticker */
+  --primary: oklch(0.74 0.16 200);
   --primary-foreground: oklch(0.99 0.005 220);
 
-  --secondary: oklch(0.96 0.01 220);
-  --secondary-foreground: oklch(0.28 0.05 250);
-  --muted: oklch(0.96 0.01 220);
-  --muted-foreground: oklch(0.5 0.03 250);
-  --accent: oklch(0.94 0.03 210);
-  --accent-foreground: oklch(0.28 0.06 250);
+  --secondary: oklch(0.96 0.02 200);
+  --secondary-foreground: oklch(0.3 0.1 260);
+  --muted: oklch(0.95 0.012 200);
+  --muted-foreground: oklch(0.5 0.04 250);
+  --accent: oklch(0.92 0.05 200);
+  --accent-foreground: oklch(0.3 0.1 260);
 
-  /* Destructive: rojo del logo */
-  --destructive: oklch(0.62 0.21 25);
+  /* Destructive / sin stock: coral del logo */
+  --destructive: oklch(0.66 0.22 25);
   --destructive-foreground: oklch(0.99 0.005 220);
 
-  /* Warning: amarillo del logo */
-  --warning: oklch(0.82 0.15 80);
-  --warning-foreground: oklch(0.28 0.06 60);
+  /* Warning / stock bajo: amarillo dorado */
+  --warning: oklch(0.85 0.18 85);
+  --warning-foreground: oklch(0.3 0.1 60);
 
-  /* Acentos de marca extra (para badges, ilustraciones) */
-  --brand-sun: oklch(0.82 0.15 80);
-  --brand-fire: oklch(0.65 0.2 30);
+  /* Acentos de marca: amarillo sol, coral fuego, azul outline */
+  --brand-sun: oklch(0.85 0.18 85);
+  --brand-fire: oklch(0.66 0.22 25);
+  --brand-ink: oklch(0.3 0.1 260);
 
-  --border: oklch(0.9 0.01 220);
-  --input: oklch(0.92 0.01 220);
-  --ring: oklch(0.7 0.13 210);
+  --border: oklch(0.89 0.02 200);
+  --input: oklch(0.91 0.02 200);
+  --ring: oklch(0.74 0.16 200);
 
-  --chart-1: oklch(0.7 0.13 210);
-  --chart-2: oklch(0.82 0.15 80);
-  --chart-3: oklch(0.62 0.21 25);
-  --chart-4: oklch(0.65 0.15 160);
+  --chart-1: oklch(0.74 0.16 200);
+  --chart-2: oklch(0.85 0.18 85);
+  --chart-3: oklch(0.66 0.22 25);
+  --chart-4: oklch(0.65 0.18 160);
   --chart-5: oklch(0.6 0.2 290);
 
-  --radius: 0.75rem;
+  --radius: 0.85rem;
 
-  --sidebar: oklch(0.98 0.005 220);
-  --sidebar-foreground: oklch(0.22 0.04 250);
-  --sidebar-primary: oklch(0.7 0.13 210);
+  --sidebar: oklch(0.98 0.012 85);
+  --sidebar-foreground: oklch(0.26 0.08 260);
+  --sidebar-primary: oklch(0.74 0.16 200);
   --sidebar-primary-foreground: oklch(0.99 0.005 220);
-  --sidebar-accent: oklch(0.94 0.03 210);
-  --sidebar-accent-foreground: oklch(0.28 0.06 250);
-  --sidebar-border: oklch(0.9 0.01 220);
-  --sidebar-ring: oklch(0.7 0.13 210);
+  --sidebar-accent: oklch(0.92 0.05 200);
+  --sidebar-accent-foreground: oklch(0.3 0.1 260);
+  --sidebar-border: oklch(0.89 0.02 200);
+  --sidebar-ring: oklch(0.74 0.16 200);
 }
 
 .dark {
-  --background: oklch(0.18 0.025 250);
-  --foreground: oklch(0.97 0.01 220);
-  --card: oklch(0.23 0.03 250);
-  --card-foreground: oklch(0.97 0.01 220);
-  --popover: oklch(0.23 0.03 250);
-  --popover-foreground: oklch(0.97 0.01 220);
+  --background: oklch(0.17 0.05 260);
+  --foreground: oklch(0.97 0.012 200);
+  --card: oklch(0.22 0.06 260);
+  --card-foreground: oklch(0.97 0.012 200);
+  --popover: oklch(0.22 0.06 260);
+  --popover-foreground: oklch(0.97 0.012 200);
 
-  --primary: oklch(0.78 0.12 200);
-  --primary-foreground: oklch(0.18 0.025 250);
+  --primary: oklch(0.78 0.15 200);
+  --primary-foreground: oklch(0.17 0.05 260);
 
-  --secondary: oklch(0.27 0.03 250);
-  --secondary-foreground: oklch(0.97 0.01 220);
-  --muted: oklch(0.27 0.03 250);
-  --muted-foreground: oklch(0.7 0.02 220);
-  --accent: oklch(0.3 0.06 210);
-  --accent-foreground: oklch(0.97 0.01 220);
+  --secondary: oklch(0.28 0.06 260);
+  --secondary-foreground: oklch(0.97 0.012 200);
+  --muted: oklch(0.28 0.06 260);
+  --muted-foreground: oklch(0.7 0.03 220);
+  --accent: oklch(0.32 0.08 210);
+  --accent-foreground: oklch(0.97 0.012 200);
 
-  --destructive: oklch(0.7 0.2 25);
-  --destructive-foreground: oklch(0.18 0.025 250);
+  --destructive: oklch(0.72 0.22 25);
+  --destructive-foreground: oklch(0.17 0.05 260);
 
-  --warning: oklch(0.85 0.16 80);
-  --warning-foreground: oklch(0.22 0.06 60);
+  --warning: oklch(0.86 0.18 85);
+  --warning-foreground: oklch(0.22 0.08 60);
 
-  --brand-sun: oklch(0.85 0.16 80);
-  --brand-fire: oklch(0.72 0.2 30);
+  --brand-sun: oklch(0.86 0.18 85);
+  --brand-fire: oklch(0.72 0.22 25);
+  --brand-ink: oklch(0.85 0.05 200);
 
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 17%);
-  --ring: oklch(0.78 0.12 200);
+  --ring: oklch(0.78 0.15 200);
 
-  --chart-1: oklch(0.78 0.12 200);
-  --chart-2: oklch(0.85 0.16 80);
-  --chart-3: oklch(0.7 0.2 25);
+  --chart-1: oklch(0.78 0.15 200);
+  --chart-2: oklch(0.86 0.18 85);
+  --chart-3: oklch(0.72 0.22 25);
   --chart-4: oklch(0.72 0.14 160);
   --chart-5: oklch(0.68 0.2 290);
 
-  --sidebar: oklch(0.23 0.03 250);
-  --sidebar-foreground: oklch(0.97 0.01 220);
-  --sidebar-primary: oklch(0.78 0.12 200);
-  --sidebar-primary-foreground: oklch(0.18 0.025 250);
-  --sidebar-accent: oklch(0.3 0.06 210);
-  --sidebar-accent-foreground: oklch(0.97 0.01 220);
+  --sidebar: oklch(0.22 0.06 260);
+  --sidebar-foreground: oklch(0.97 0.012 200);
+  --sidebar-primary: oklch(0.78 0.15 200);
+  --sidebar-primary-foreground: oklch(0.17 0.05 260);
+  --sidebar-accent: oklch(0.32 0.08 210);
+  --sidebar-accent-foreground: oklch(0.97 0.012 200);
   --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.78 0.12 200);
+  --sidebar-ring: oklch(0.78 0.15 200);
 }
 
 @layer base {
@@ -173,7 +180,11 @@
   }
   h1, h2, h3, h4, h5, h6, .font-heading {
     font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
+    font-weight: 700;
+  }
+  h1.font-heading, h2.font-heading {
+    letter-spacing: -0.025em;
   }
 }
 
@@ -186,15 +197,31 @@
     background-color: var(--warning);
     color: var(--warning-foreground);
   }
+  .text-warning {
+    color: var(--warning);
+  }
   .bg-brand-gradient {
     background-image: linear-gradient(
       135deg,
       var(--brand-sun) 0%,
-      var(--brand-fire) 50%,
-      var(--primary) 100%
+      var(--brand-fire) 100%
     );
   }
-  .text-warning {
-    color: var(--warning);
+  /* Sombra suave con tinte del color brand. Pensada para FABs y botones primary. */
+  .shadow-brand {
+    box-shadow:
+      0 4px 14px -2px color-mix(in oklch, var(--primary) 40%, transparent),
+      0 1px 0 0 color-mix(in oklch, var(--primary) 30%, transparent);
+  }
+  .shadow-brand-lg {
+    box-shadow:
+      0 10px 30px -4px color-mix(in oklch, var(--primary) 45%, transparent),
+      0 2px 0 0 color-mix(in oklch, var(--primary) 30%, transparent);
+  }
+  /* Sticker shadow para cards/badges con onda playful */
+  .shadow-sticker {
+    box-shadow:
+      0 2px 0 0 var(--brand-ink),
+      0 4px 16px -6px color-mix(in oklch, var(--brand-ink) 30%, transparent);
   }
 }

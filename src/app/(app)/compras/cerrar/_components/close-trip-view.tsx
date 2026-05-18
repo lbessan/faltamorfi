@@ -22,13 +22,24 @@ import {
 } from "@/lib/database.types";
 import type { ShoppingListItemWithProduct } from "@/lib/db/shopping";
 import { DynamicIcon } from "@/lib/icon-map";
+import { useRealtimeRefresh } from "@/lib/realtime/use-realtime-refresh";
 import { closeTripAction, removeListItemAction } from "../../actions";
 
 type Props = {
+  householdId: string;
   items: ShoppingListItemWithProduct[];
 };
 
-export function CloseTripView({ items }: Props) {
+export function CloseTripView({ householdId, items }: Props) {
+  useRealtimeRefresh({
+    tables: [
+      {
+        table: "shopping_list_items",
+        filter: `household_id=eq.${householdId}`,
+      },
+    ],
+  });
+
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);

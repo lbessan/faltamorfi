@@ -43,6 +43,7 @@ export default async function ComprasPage() {
 
   return (
     <ComprasView
+      householdId={household.id}
       restock={restock}
       lowStock={lowStock}
       productsInList={productsInList}

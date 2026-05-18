@@ -17,6 +17,7 @@ import type { ProductWithLocation } from "@/lib/db/products";
 import { lookupBarcode } from "@/lib/openfoodfacts";
 import { BarcodeScannerSheet } from "@/components/barcode-scanner";
 import { DynamicIcon } from "@/lib/icon-map";
+import { useRealtimeRefresh } from "@/lib/realtime/use-realtime-refresh";
 import { ProductCard } from "./product-card";
 import { AddProductSheet } from "./add-product-sheet";
 import { ProductDetailSheet } from "./product-detail-sheet";
@@ -26,6 +27,7 @@ const ALL_LOCATIONS_VALUE = "__all__";
 const NO_LOCATION_VALUE = "__none__";
 
 type Props = {
+  householdId: string;
   householdName: string;
   locations: Location[];
   products: ProductWithLocation[];
@@ -34,12 +36,24 @@ type Props = {
 };
 
 export function InventoryView({
+  householdId,
   householdName,
   locations,
   products,
   warningDays,
   canEdit,
 }: Props) {
+  // Cuando otro miembro del hogar agrega/consume/edita productos o lotes,
+  // recibimos un evento y refrescamos. RLS hace el resto.
+  useRealtimeRefresh({
+    tables: [
+      { table: "products", filter: `household_id=eq.${householdId}` },
+      // stock_items no tiene household_id directo; aceptamos cualquier evento
+      // y el refresh (que pasa por RLS) filtra los que pertenecen al hogar.
+      { table: "stock_items" },
+    ],
+  });
+
   const [query, setQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState<string>(
     ALL_LOCATIONS_VALUE,

@@ -6,10 +6,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { Location } from "@/lib/database.types";
 import type { ProductWithLocation } from "@/lib/db/products";
 import type { ShoppingListItemWithProduct } from "@/lib/db/shopping";
+import { useRealtimeRefresh } from "@/lib/realtime/use-realtime-refresh";
 import { RestockView } from "./restock-view";
 import { ShoppingListView } from "./shopping-list-view";
 
 type Props = {
+  householdId: string;
   restock: ProductWithLocation[];
   lowStock: ProductWithLocation[];
   productsInList: Set<string>;
@@ -19,6 +21,7 @@ type Props = {
 };
 
 export function ComprasView({
+  householdId,
   restock,
   lowStock,
   productsInList,
@@ -26,6 +29,19 @@ export function ComprasView({
   locations,
   canEdit,
 }: Props) {
+  // Sync entre miembros: cuando otro agrega/checkea/quita items o cambia
+  // stock que afecta a "Por reponer", refrescamos.
+  useRealtimeRefresh({
+    tables: [
+      {
+        table: "shopping_list_items",
+        filter: `household_id=eq.${householdId}`,
+      },
+      { table: "products", filter: `household_id=eq.${householdId}` },
+      { table: "stock_items" },
+    ],
+  });
+
   const pendingCount = shoppingItems.filter((i) => i.state === "pending").length;
   const checkedCount = shoppingItems.filter((i) => i.state === "checked").length;
   const totalListCount = pendingCount + checkedCount;

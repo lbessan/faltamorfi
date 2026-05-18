@@ -31,6 +31,7 @@ export default async function InventoryPage() {
 
   return (
     <InventoryView
+      householdId={household.id}
       householdName={household.name}
       locations={locations}
       products={products}

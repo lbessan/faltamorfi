@@ -18,5 +18,5 @@ export default async function CerrarPage() {
     redirect("/compras");
   }
 
-  return <CloseTripView items={items} />;
+  return <CloseTripView householdId={household.id} items={items} />;
 }

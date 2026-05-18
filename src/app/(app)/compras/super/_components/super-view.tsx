@@ -14,13 +14,25 @@ import {
 } from "@/lib/database.types";
 import type { ShoppingListItemWithProduct } from "@/lib/db/shopping";
 import { DynamicIcon } from "@/lib/icon-map";
+import { useRealtimeRefresh } from "@/lib/realtime/use-realtime-refresh";
 import { setItemStateAction } from "../../actions";
 
 type Props = {
+  householdId: string;
   items: ShoppingListItemWithProduct[];
 };
 
-export function SuperView({ items }: Props) {
+export function SuperView({ householdId, items }: Props) {
+  // Si otro miembro está marcando items en paralelo, los vemos al instante.
+  useRealtimeRefresh({
+    tables: [
+      {
+        table: "shopping_list_items",
+        filter: `household_id=eq.${householdId}`,
+      },
+    ],
+  });
+
   const grouped = useMemo(() => groupByDepartment(items), [items]);
   const total = items.length;
   const checked = items.filter((i) => i.state === "checked").length;

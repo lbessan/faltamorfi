@@ -21,5 +21,5 @@ export default async function SuperPage() {
     redirect("/compras");
   }
 
-  return <SuperView items={items} />;
+  return <SuperView householdId={household.id} items={items} />;
 }

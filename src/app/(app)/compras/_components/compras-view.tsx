@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ListChecks, ShoppingBasket } from "lucide-react";
+import Link from "next/link";
+import { ListChecks, ReceiptText, ShoppingBasket } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { Location } from "@/lib/database.types";
 import type { ProductWithLocation } from "@/lib/db/products";
@@ -57,15 +59,27 @@ export function ComprasView({
 
   return (
     <div className="px-4 py-4 space-y-4">
-      <div>
-        <h1 className="font-heading text-3xl font-bold tracking-tight">
-          Compras
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {totalListCount > 0
-            ? `${totalListCount} en la lista${checkedCount > 0 ? ` · ${checkedCount} marcado${checkedCount === 1 ? "" : "s"}` : ""}`
-            : "Lo que necesitás reponer y tu lista del super, todo en un lugar."}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="font-heading text-3xl font-bold tracking-tight">
+            Compras
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {totalListCount > 0
+              ? `${totalListCount} en la lista${checkedCount > 0 ? ` · ${checkedCount} marcado${checkedCount === 1 ? "" : "s"}` : ""}`
+              : "Lo que necesitás reponer y tu lista del super, todo en un lugar."}
+          </p>
+        </div>
+        {canEdit && (
+          <Link
+            href="/compras/ticket"
+            aria-label="Cargar desde ticket"
+            title="Cargar desde ticket"
+            className={buttonVariants({ variant: "outline", size: "icon" }) + " shrink-0 size-11"}
+          >
+            <ReceiptText className="size-5" />
+          </Link>
+        )}
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>

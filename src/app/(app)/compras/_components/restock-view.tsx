@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Check,
+  Hourglass,
   ListChecks,
   Loader2,
   Plus,
@@ -27,6 +28,11 @@ import {
   type Location,
 } from "@/lib/database.types";
 import type { ProductWithLocation } from "@/lib/db/products";
+import {
+  formatDaysLeft,
+  predictDaysLeft,
+  type ConsumptionRate,
+} from "@/lib/db/predictions";
 import { DynamicIcon } from "@/lib/icon-map";
 import { LotForm } from "@/app/(app)/inventario/_components/lot-form";
 import { addProductToListAction } from "../actions";
@@ -34,17 +40,21 @@ import { addProductToListAction } from "../actions";
 type Props = {
   restock: ProductWithLocation[];
   lowStock: ProductWithLocation[];
+  runningOut: ProductWithLocation[];
   productsInList: Set<string>;
   locations: Location[];
   canEdit: boolean;
+  ratesByProduct: Record<string, ConsumptionRate>;
 };
 
 export function RestockView({
   restock,
   lowStock,
+  runningOut,
   productsInList,
   locations,
   canEdit,
+  ratesByProduct,
 }: Props) {
   const router = useRouter();
   const [active, setActive] = useState<ProductWithLocation | null>(null);
@@ -53,12 +63,16 @@ export function RestockView({
 
   const groupedRestock = useMemo(() => groupByDepartment(restock), [restock]);
   const groupedLow = useMemo(() => groupByDepartment(lowStock), [lowStock]);
+  const groupedRunningOut = useMemo(
+    () => groupByDepartment(runningOut),
+    [runningOut],
+  );
 
-  const total = restock.length + lowStock.length;
+  const total = restock.length + lowStock.length + runningOut.length;
 
   function addToList(
     product: ProductWithLocation,
-    source: "restock" | "low_stock",
+    source: "restock" | "low_stock" | "manual",
   ) {
     setPendingProduct(product.id);
     startTransition(async () => {
@@ -83,6 +97,7 @@ export function RestockView({
               productsInList={productsInList}
               pendingProduct={pendingProduct}
               canEdit={canEdit}
+              ratesByProduct={ratesByProduct}
               onPickLot={setActive}
               onAddToList={(p) => addToList(p, "restock")}
             />
@@ -106,6 +121,38 @@ export function RestockView({
               productsInList={productsInList}
               pendingProduct={pendingProduct}
               canEdit={canEdit}
+              ratesByProduct={ratesByProduct}
+              onPickLot={setActive}
+              onAddToList={(p) => addToList(p, "low_stock")}
+            />
+          ))}
+        </div>
+      )}
+
+      {runningOut.length > 0 && (
+        <div className="space-y-4">
+          {(restock.length > 0 || lowStock.length > 0) && (
+            <div className="border-t border-border pt-4" />
+          )}
+          <div>
+            <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
+              <Hourglass className="size-4 text-primary" />
+              Se va a acabar pronto
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Según tu consumo histórico, te dura ~1 semana o menos.
+            </p>
+          </div>
+          {groupedRunningOut.map(({ department, items }) => (
+            <DepartmentBlock
+              key={`running-${department}`}
+              department={department}
+              items={items}
+              variant="running"
+              productsInList={productsInList}
+              pendingProduct={pendingProduct}
+              canEdit={canEdit}
+              ratesByProduct={ratesByProduct}
               onPickLot={setActive}
               onAddToList={(p) => addToList(p, "low_stock")}
             />
@@ -149,6 +196,8 @@ export function RestockView({
 
 // ----------------------------------------------------------------------------
 
+type Variant = "out" | "low" | "running";
+
 function DepartmentBlock({
   department,
   items,
@@ -156,15 +205,17 @@ function DepartmentBlock({
   productsInList,
   pendingProduct,
   canEdit,
+  ratesByProduct,
   onPickLot,
   onAddToList,
 }: {
   department: Department;
   items: ProductWithLocation[];
-  variant: "out" | "low";
+  variant: Variant;
   productsInList: Set<string>;
   pendingProduct: string | null;
   canEdit: boolean;
+  ratesByProduct: Record<string, ConsumptionRate>;
   onPickLot: (p: ProductWithLocation) => void;
   onAddToList: (p: ProductWithLocation) => void;
 }) {
@@ -190,6 +241,7 @@ function DepartmentBlock({
               inList={productsInList.has(p.id)}
               pending={pendingProduct === p.id}
               canEdit={canEdit}
+              rate={ratesByProduct[p.id]}
               onPickLot={() => onPickLot(p)}
               onAddToList={() => onAddToList(p)}
             />
@@ -206,28 +258,39 @@ function RestockRow({
   inList,
   pending,
   canEdit,
+  rate,
   onPickLot,
   onAddToList,
 }: {
   product: ProductWithLocation;
-  variant: "out" | "low";
+  variant: Variant;
   inList: boolean;
   pending: boolean;
   canEdit: boolean;
+  rate?: ConsumptionRate;
   onPickLot: () => void;
   onAddToList: () => void;
 }) {
+  const prediction = predictDaysLeft(rate, Number(product.quantity));
+
+  const borderClass =
+    variant === "low"
+      ? "border-warning/30 bg-warning/5"
+      : variant === "running"
+        ? "border-primary/30 bg-primary/5"
+        : "border-border bg-card";
+
   return (
     <div
-      className={`rounded-xl border p-3 flex items-center gap-3 ${
-        variant === "low"
-          ? "border-warning/30 bg-warning/5"
-          : "border-border bg-card"
-      }`}
+      className={`rounded-xl border p-3 flex items-center gap-3 ${borderClass}`}
     >
       <div
         className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${
-          variant === "low" ? "bg-warning/20" : "bg-muted"
+          variant === "low"
+            ? "bg-warning/20"
+            : variant === "running"
+              ? "bg-primary/15"
+              : "bg-muted"
         }`}
       >
         <DynamicIcon
@@ -235,7 +298,9 @@ function RestockRow({
           className={`size-5 ${
             variant === "low"
               ? "text-warning-foreground"
-              : "text-muted-foreground"
+              : variant === "running"
+                ? "text-primary"
+                : "text-muted-foreground"
           }`}
           strokeWidth={1.7}
         />
@@ -244,9 +309,11 @@ function RestockRow({
       <div className="flex-1 min-w-0">
         <div className="font-medium text-sm truncate">{product.name}</div>
         <div className="text-[11px] text-muted-foreground truncate">
-          {variant === "low"
-            ? `${formatQuantity(Number(product.quantity))} restante`
-            : "Sin stock"}
+          {variant === "running" && prediction.daysLeft !== null
+            ? `${formatQuantity(Number(product.quantity))} · ${formatDaysLeft(prediction.daysLeft).toLowerCase()}`
+            : variant === "low"
+              ? `${formatQuantity(Number(product.quantity))} restante`
+              : "Sin stock"}
         </div>
       </div>
 

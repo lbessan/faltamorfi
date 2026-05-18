@@ -5,6 +5,7 @@ import { ListChecks, ShoppingBasket } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { Location } from "@/lib/database.types";
 import type { ProductWithLocation } from "@/lib/db/products";
+import type { ConsumptionRate } from "@/lib/db/predictions";
 import type { ShoppingListItemWithProduct } from "@/lib/db/shopping";
 import { useRealtimeRefresh } from "@/lib/realtime/use-realtime-refresh";
 import { RestockView } from "./restock-view";
@@ -14,20 +15,24 @@ type Props = {
   householdId: string;
   restock: ProductWithLocation[];
   lowStock: ProductWithLocation[];
+  runningOut: ProductWithLocation[];
   productsInList: Set<string>;
   shoppingItems: ShoppingListItemWithProduct[];
   locations: Location[];
   canEdit: boolean;
+  ratesByProduct: Record<string, ConsumptionRate>;
 };
 
 export function ComprasView({
   householdId,
   restock,
   lowStock,
+  runningOut,
   productsInList,
   shoppingItems,
   locations,
   canEdit,
+  ratesByProduct,
 }: Props) {
   // Sync entre miembros: cuando otro agrega/checkea/quita items o cambia
   // stock que afecta a "Por reponer", refrescamos.
@@ -68,9 +73,9 @@ export function ComprasView({
           <TabsTrigger value="restock">
             <ListChecks className="size-4" />
             Por reponer
-            {restock.length + lowStock.length > 0 && (
+            {restock.length + lowStock.length + runningOut.length > 0 && (
               <span className="ml-1.5 text-[10px] text-muted-foreground">
-                ({restock.length + lowStock.length})
+                ({restock.length + lowStock.length + runningOut.length})
               </span>
             )}
           </TabsTrigger>
@@ -89,9 +94,11 @@ export function ComprasView({
           <RestockView
             restock={restock}
             lowStock={lowStock}
+            runningOut={runningOut}
             productsInList={productsInList}
             locations={locations}
             canEdit={canEdit}
+            ratesByProduct={ratesByProduct}
           />
         </TabsContent>
 

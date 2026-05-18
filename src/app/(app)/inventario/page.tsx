@@ -7,6 +7,7 @@ import {
 import { listLocations } from "@/lib/db/locations";
 import { listProducts } from "@/lib/db/products";
 import { getOrCreateUserPreferences } from "@/lib/db/preferences";
+import { fetchConsumptionRates } from "@/lib/db/predictions";
 import { canEdit } from "@/lib/database.types";
 import { InventoryView } from "./_components/inventory-view";
 
@@ -22,12 +23,16 @@ export default async function InventoryPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [locations, products, prefs, role] = await Promise.all([
+  const [locations, products, prefs, role, rates] = await Promise.all([
     listLocations(supabase, household.id),
     listProducts(supabase, household.id),
     user ? getOrCreateUserPreferences(supabase, user.id) : Promise.resolve(null),
     getCurrentHouseholdRole(supabase, household.id),
+    fetchConsumptionRates(supabase, household.id),
   ]);
+
+  // Serializamos el Map para que sea client-prop-safe (Server → Client RSC).
+  const ratesByProduct = Object.fromEntries(rates);
 
   return (
     <InventoryView
@@ -37,6 +42,7 @@ export default async function InventoryPage() {
       products={products}
       warningDays={prefs?.default_expiry_warning_days ?? 3}
       canEdit={canEdit(role)}
+      ratesByProduct={ratesByProduct}
     />
   );
 }

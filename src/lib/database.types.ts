@@ -423,6 +423,27 @@ export type Database = {
         Args: { invitation_lookup: string };
         Returns: { household_id: string; role: string }[];
       };
+      compute_consumption_rates: {
+        Args: { target_household_id: string; days_window?: number };
+        Returns: {
+          product_id: string;
+          daily_rate: number;
+          total_consumed: number;
+          consumption_events: number;
+          first_event_at: string;
+          last_event_at: string;
+        }[];
+      };
+      recent_consumption_for_product: {
+        Args: { target_product_id: string; limit_count?: number };
+        Returns: {
+          id: string;
+          quantity: number;
+          occurred_at: string;
+          note: string | null;
+          user_id: string | null;
+        }[];
+      };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };

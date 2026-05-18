@@ -14,6 +14,7 @@ import {
   type Location,
 } from "@/lib/database.types";
 import type { ProductWithLocation } from "@/lib/db/products";
+import type { ConsumptionRate } from "@/lib/db/predictions";
 import { lookupBarcode } from "@/lib/openfoodfacts";
 import { BarcodeScannerSheet } from "@/components/barcode-scanner";
 import { DynamicIcon } from "@/lib/icon-map";
@@ -33,6 +34,8 @@ type Props = {
   products: ProductWithLocation[];
   warningDays: number;
   canEdit: boolean;
+  /** Tasas de consumo por producto (record para passing server→client). */
+  ratesByProduct: Record<string, ConsumptionRate>;
 };
 
 export function InventoryView({
@@ -42,6 +45,7 @@ export function InventoryView({
   products,
   warningDays,
   canEdit,
+  ratesByProduct,
 }: Props) {
   // Cuando otro miembro del hogar agrega/consume/edita productos o lotes,
   // recibimos un evento y refrescamos. RLS hace el resto.
@@ -271,6 +275,7 @@ export function InventoryView({
                     <ProductCard
                       product={p}
                       warningDays={warningDays}
+                      rate={ratesByProduct[p.id]}
                       onClick={() => setSelected(p)}
                     />
                   </li>
@@ -313,6 +318,7 @@ export function InventoryView({
         locations={locations}
         warningDays={warningDays}
         canEdit={canEdit}
+        rate={selected ? ratesByProduct[selected.id] : undefined}
         onOpenChange={(open) => !open && setSelected(null)}
       />
 

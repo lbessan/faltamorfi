@@ -5,13 +5,16 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   CalendarClock,
+  Hourglass,
   Loader2,
   Minus,
   Package2,
   Pencil,
   Plus,
   Snowflake,
+  Sparkles,
   Trash2,
+  TrendingDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -28,6 +31,14 @@ import {
   listStockItems,
   type StockItemWithLocation,
 } from "@/lib/db/stock-items";
+import {
+  fetchRecentConsumption,
+  formatDailyRate,
+  formatDaysLeft,
+  predictDaysLeft,
+  type ConsumptionRate,
+  type RecentConsumption,
+} from "@/lib/db/predictions";
 import { createClient } from "@/lib/supabase/client";
 import type { ProductWithLocation } from "@/lib/db/products";
 import { lookupBarcode } from "@/lib/openfoodfacts";
@@ -46,6 +57,7 @@ type Props = {
   locations: Location[];
   warningDays: number;
   canEdit: boolean;
+  rate?: ConsumptionRate;
   onOpenChange: (open: boolean) => void;
 };
 
@@ -56,6 +68,7 @@ export function ProductDetailSheet({
   locations,
   warningDays,
   canEdit,
+  rate,
   onOpenChange,
 }: Props) {
   const [mode, setMode] = useState<Mode>("view");
@@ -78,6 +91,7 @@ export function ProductDetailSheet({
             locations={locations}
             warningDays={warningDays}
             canEdit={canEdit}
+            rate={rate}
             onEditProduct={() => setMode("editProduct")}
             onClose={() => handleOpenChange(false)}
           />
@@ -114,6 +128,7 @@ function ViewMode({
   locations,
   warningDays,
   canEdit,
+  rate,
   onEditProduct,
   onClose,
 }: {
@@ -121,6 +136,7 @@ function ViewMode({
   locations: Location[];
   warningDays: number;
   canEdit: boolean;
+  rate?: ConsumptionRate;
   onEditProduct: () => void;
   onClose: () => void;
 }) {
@@ -134,6 +150,7 @@ function ViewMode({
   const [scannerOpen, setScannerOpen] = useState(false);
   const [lotPrefill, setLotPrefill] = useState<LotPrefill | null>(null);
   const [lookupPending, startLookup] = useTransition();
+  const [history, setHistory] = useState<RecentConsumption[] | null>(null);
 
   // Reset cuando cambia el producto. Patrón "state derived from props".
   const productKey = `${product.id}-${product.updated_at}`;
@@ -146,14 +163,15 @@ function ViewMode({
     setEditingLotId(null);
     setLotPrefill(null);
     setScannerOpen(false);
+    setHistory(null);
   }
 
-  // Refetch lots cada vez que cambia el producto.
+  // Refetch lots e historial cuando cambia el producto.
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      const supabase = createClient();
       try {
-        const supabase = createClient();
         const data = await listStockItems(supabase, product.id);
         if (!cancelled) setLots(data);
       } catch (err) {
@@ -161,6 +179,12 @@ function ViewMode({
           setLotsError(
             err instanceof Error ? err.message : "Error cargando lotes.",
           );
+      }
+      try {
+        const recent = await fetchRecentConsumption(supabase, product.id, 10);
+        if (!cancelled) setHistory(recent);
+      } catch {
+        if (!cancelled) setHistory([]);
       }
     })();
     return () => {
@@ -460,7 +484,20 @@ function ViewMode({
 
         <Separator />
 
-        {product.notes && <DetailRow label="Notas del tipo" value={product.notes} />}
+        <ConsumptionSection
+          product={product}
+          rate={rate}
+          history={history}
+          qty={qty}
+          unitLabel={unitLabel}
+        />
+
+        {product.notes && (
+          <>
+            <Separator />
+            <DetailRow label="Notas del tipo" value={product.notes} />
+          </>
+        )}
 
         {canEdit && (
           <Button
@@ -494,6 +531,163 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <span className="text-sm">{value}</span>
     </div>
   );
+}
+
+function ConsumptionSection({
+  product,
+  rate,
+  history,
+  qty,
+  unitLabel,
+}: {
+  product: ProductWithLocation;
+  rate?: ConsumptionRate;
+  history: RecentConsumption[] | null;
+  qty: number;
+  unitLabel: string;
+}) {
+  const prediction = predictDaysLeft(rate, qty);
+  const hasData =
+    prediction.confidence !== "none" && (rate?.consumption_events ?? 0) > 0;
+
+  return (
+    <section className="space-y-2">
+      <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <TrendingDown className="size-4" />
+        Tu consumo
+      </h2>
+
+      {!hasData ? (
+        <div className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+          <Sparkles className="size-4 mx-auto mb-1 opacity-60" />
+          Todavía no tenemos suficiente historial. Con un par de
+          &quot;consumir&quot; o &quot;consumir todo&quot; ya podemos estimar
+          cuánto te dura.
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <Stat
+              icon={<TrendingDown className="size-4 text-muted-foreground" />}
+              label="Promedio"
+              value={formatDailyRate(prediction.dailyRate, unitLabel)}
+            />
+            <Stat
+              icon={<Hourglass className="size-4 text-muted-foreground" />}
+              label="Te dura"
+              value={
+                prediction.daysLeft !== null
+                  ? formatDaysLeft(prediction.daysLeft)
+                  : "—"
+              }
+            />
+          </div>
+          <ConfidenceLine
+            confidence={prediction.confidence}
+            events={prediction.events}
+            totalConsumed={prediction.totalConsumed}
+            unit={product.unit}
+          />
+        </div>
+      )}
+
+      {/* Historial reciente */}
+      {history !== null && history.length > 0 && (
+        <div className="rounded-xl border border-border bg-card divide-y divide-border">
+          <div className="px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Últimos {history.length} consumos
+          </div>
+          <ul className="divide-y divide-border max-h-48 overflow-y-auto">
+            {history.map((h) => (
+              <li
+                key={h.id}
+                className="px-3 py-2 flex items-center justify-between gap-2 text-sm"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-foreground">
+                    {h.quantity > 0
+                      ? `−${formatQuantity(Number(h.quantity))} ${unitLabel}`
+                      : `+${formatQuantity(Math.abs(Number(h.quantity)))} ${unitLabel}`}
+                  </div>
+                  {h.note && (
+                    <div className="text-xs text-muted-foreground truncate">
+                      {h.note}
+                    </div>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground shrink-0">
+                  {formatRelativeTimestamp(h.occurred_at)}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Stat({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-lg bg-muted/30 px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+        {icon}
+        {label}
+      </div>
+      <div className="text-sm font-medium mt-0.5">{value}</div>
+    </div>
+  );
+}
+
+function ConfidenceLine({
+  confidence,
+  events,
+  totalConsumed,
+  unit,
+}: {
+  confidence: "none" | "low" | "medium" | "high";
+  events: number;
+  totalConsumed: number;
+  unit: string;
+}) {
+  const unitLabel = unit === "un" ? "" : ` ${unit}`;
+  return (
+    <p className="text-[11px] text-muted-foreground">
+      Basado en {events} consumo{events === 1 ? "" : "s"} de los últimos 60
+      días ({formatQuantity(totalConsumed)}
+      {unitLabel} en total)
+      {confidence === "low" && (
+        <span className="text-warning-foreground/80">
+          {" "}
+          · pocos datos, la estimación puede variar
+        </span>
+      )}
+      .
+    </p>
+  );
+}
+
+function formatRelativeTimestamp(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "ahora";
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "ayer";
+  if (days < 7) return `hace ${days} días`;
+  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
 }
 
 function formatQuantity(n: number): string {

@@ -1,19 +1,25 @@
 "use client";
 
 import Image from "next/image";
-import { CalendarClock, MapPin } from "lucide-react";
+import { CalendarClock, Hourglass, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UNIT_LABELS, type Unit } from "@/lib/database.types";
 import type { LotSummary, ProductWithLocation } from "@/lib/db/products";
+import {
+  formatDaysLeft,
+  predictDaysLeft,
+  type ConsumptionRate,
+} from "@/lib/db/predictions";
 import { DynamicIcon } from "@/lib/icon-map";
 
 type Props = {
   product: ProductWithLocation;
   warningDays: number;
+  rate?: ConsumptionRate;
   onClick: () => void;
 };
 
-export function ProductCard({ product, warningDays, onClick }: Props) {
+export function ProductCard({ product, warningDays, rate, onClick }: Props) {
   const qty = Number(product.quantity);
   const threshold = Number(product.low_stock_threshold);
   const low = qty <= threshold;
@@ -22,6 +28,14 @@ export function ProductCard({ product, warningDays, onClick }: Props) {
   const brandSummary = summarizeBrands(product.lots);
   const thumbUrl = pickThumbUrl(product.lots);
   const nextExp = nextExpirationInfo(product.lots, warningDays);
+  const prediction = predictDaysLeft(rate, qty);
+  const showPrediction =
+    prediction.daysLeft !== null &&
+    prediction.confidence !== "none" &&
+    !out &&
+    prediction.daysLeft <= 14;
+  const predictionUrgent =
+    prediction.daysLeft !== null && prediction.daysLeft <= 5;
 
   return (
     <button
@@ -67,6 +81,18 @@ export function ProductCard({ product, warningDays, onClick }: Props) {
           >
             <CalendarClock className="size-3" />
             {nextExp.label}
+          </div>
+        )}
+        {showPrediction && prediction.daysLeft !== null && (
+          <div
+            className={`text-xs mt-0.5 inline-flex items-center gap-1 ${
+              predictionUrgent
+                ? "text-warning-foreground/90"
+                : "text-muted-foreground"
+            }`}
+          >
+            <Hourglass className="size-3" />
+            {formatDaysLeft(prediction.daysLeft)}
           </div>
         )}
       </div>

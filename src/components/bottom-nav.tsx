@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Package, ShoppingBasket } from "lucide-react";
+import { Home, Package, ShoppingBasket, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -26,6 +26,12 @@ const NAV_ITEMS: NavItem[] = [
     match: (path) => path.startsWith("/compras"),
   },
   {
+    href: "/asistente",
+    label: "Asistente",
+    icon: Sparkles,
+    match: (path) => path.startsWith("/asistente"),
+  },
+  {
     href: "/hogar",
     label: "Hogar",
     icon: Home,
@@ -41,7 +47,7 @@ export function BottomNav() {
       className="fixed bottom-0 inset-x-0 border-t border-border bg-background/95 backdrop-blur-md z-20 pb-[env(safe-area-inset-bottom)]"
       aria-label="Navegación principal"
     >
-      <ul className="max-w-3xl mx-auto w-full grid grid-cols-3">
+      <ul className="max-w-3xl mx-auto w-full grid grid-cols-4">
         {NAV_ITEMS.map(({ href, label, icon: Icon, match }) => {
           const active = match(pathname);
           return (

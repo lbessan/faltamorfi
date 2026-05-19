@@ -19,6 +19,7 @@ import type { ConsumptionRate } from "@/lib/db/predictions";
 import { effectiveExpiry } from "@/lib/expiry";
 import { DynamicIcon } from "@/lib/icon-map";
 import { consumeLotAction } from "../actions";
+import { ConsumeLotDialog } from "./consume-lot-dialog";
 import { LotStateControls } from "./lot-state-dialog";
 
 type Props = {
@@ -130,6 +131,7 @@ export function ProductCard({
                 lot={lot}
                 productName={product.name}
                 productCategory={product.category}
+                unit={product.unit}
                 unitLabel={unitLabel}
                 step={step}
                 warningDays={warningDays}
@@ -169,6 +171,7 @@ function LotRow({
   lot,
   productName,
   productCategory,
+  unit,
   unitLabel,
   step,
   warningDays,
@@ -177,6 +180,7 @@ function LotRow({
   lot: LotSummary;
   productName: string;
   productCategory: string | null;
+  unit: string;
   unitLabel: string;
   step: number;
   warningDays: number;
@@ -184,13 +188,20 @@ function LotRow({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [consumeDialogOpen, setConsumeDialogOpen] = useState(false);
 
   const qty = Number(lot.quantity);
   const exp = effectiveExpiry(lot);
   const expInfo = exp ? describeDaysLeft(exp, warningDays) : null;
+  /** Unidades continuas: tiene poco sentido restar de a 0.1 click por click. */
+  const isContinuousUnit = !["un", "paq"].includes(unit);
 
-  function consume() {
+  function handleMinusClick() {
     if (qty <= 0) return;
+    if (isContinuousUnit) {
+      setConsumeDialogOpen(true);
+      return;
+    }
     startTransition(async () => {
       await consumeLotAction(lot.id, Math.min(step, qty));
       router.refresh();
@@ -246,10 +257,10 @@ function LotRow({
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={consume}
+            onClick={handleMinusClick}
             disabled={pending || qty <= 0}
-            aria-label="Consumir uno"
-            title="Consumir uno"
+            aria-label={isContinuousUnit ? "Consumir lote" : "Consumir uno"}
+            title={isContinuousUnit ? "Consumir lote" : "Consumir uno"}
           >
             {pending ? (
               <Loader2 className="size-4 animate-spin" />
@@ -258,6 +269,17 @@ function LotRow({
             )}
           </Button>
         </div>
+      )}
+
+      {isContinuousUnit && (
+        <ConsumeLotDialog
+          open={consumeDialogOpen}
+          onOpenChange={setConsumeDialogOpen}
+          lotId={lot.id}
+          productName={productName}
+          currentQuantity={qty}
+          unitLabel={unitLabel}
+        />
       )}
     </li>
   );

@@ -8,6 +8,7 @@ import {
   Camera,
   Check,
   Loader2,
+  Plus,
   ReceiptText,
   Sparkles,
   Trash2,
@@ -35,17 +36,21 @@ type Props = {
   catalog: CatalogEntry[];
 };
 
+/**
+ * Acumulador del review entre fotos. Cada foto suma sus items a `rows` y
+ * registra su preview + parsed (para mostrar store/total agregados).
+ */
+type ReviewState = {
+  previewUrls: string[];
+  parsed: ParsedReceipt[];
+  rows: ReviewRow[];
+};
+
 type Mode =
   | { kind: "pick" }
-  | { kind: "uploading"; previewUrl: string }
-  | { kind: "analyzing"; previewUrl: string }
-  | {
-      kind: "review";
-      previewUrl: string;
-      parsed: ParsedReceipt;
-      rows: ReviewRow[];
-    }
-  | { kind: "error"; previewUrl: string | null; message: string };
+  | { kind: "analyzing"; previewUrl: string; existingReview: ReviewState | null }
+  | { kind: "review"; review: ReviewState }
+  | { kind: "error"; previewUrl: string | null; message: string; existingReview: ReviewState | null };
 
 type ReviewRow = {
   /** Identificador local de la fila (no es id de DB). */
@@ -89,9 +94,17 @@ export function TicketView({ catalog }: Props) {
     if (!file) return;
     setConfirmError(null);
 
+    // Si ya hay un review en curso, lo mantenemos para no perder lo cargado.
+    const existingReview =
+      mode.kind === "review"
+        ? mode.review
+        : mode.kind === "error"
+          ? mode.existingReview
+          : null;
+
     try {
       const { base64, mediaType, previewUrl } = await prepareImage(file);
-      setMode({ kind: "analyzing", previewUrl });
+      setMode({ kind: "analyzing", previewUrl, existingReview });
 
       const res = await fetch("/api/ai/parse-receipt", {
         method: "POST",
@@ -104,9 +117,22 @@ export function TicketView({ catalog }: Props) {
       }
       const parsed = (await res.json()) as ParsedReceipt;
 
-      const rows = buildRows(parsed.items, catalog, catalogByLowerName);
+      const newRows = buildRows(parsed.items, catalogByLowerName);
 
-      setMode({ kind: "review", previewUrl, parsed, rows });
+      // Acumulamos sobre el review existente (o arrancamos uno nuevo).
+      const review: ReviewState = existingReview
+        ? {
+            previewUrls: [...existingReview.previewUrls, previewUrl],
+            parsed: [...existingReview.parsed, parsed],
+            rows: [...existingReview.rows, ...newRows],
+          }
+        : {
+            previewUrls: [previewUrl],
+            parsed: [parsed],
+            rows: newRows,
+          };
+
+      setMode({ kind: "review", review });
     } catch (err) {
       setMode({
         kind: "error",
@@ -115,6 +141,7 @@ export function TicketView({ catalog }: Props) {
           err instanceof Error
             ? err.message
             : "No pudimos procesar la imagen.",
+        existingReview,
       });
     }
   }
@@ -122,8 +149,13 @@ export function TicketView({ catalog }: Props) {
   function updateRow(key: string, patch: Partial<ReviewRow>) {
     if (mode.kind !== "review") return;
     setMode({
-      ...mode,
-      rows: mode.rows.map((r) => (r.key === key ? { ...r, ...patch } : r)),
+      kind: "review",
+      review: {
+        ...mode.review,
+        rows: mode.review.rows.map((r) =>
+          r.key === key ? { ...r, ...patch } : r,
+        ),
+      },
     });
   }
 
@@ -136,11 +168,40 @@ export function TicketView({ catalog }: Props) {
     });
   }
 
+  function addBlank() {
+    if (mode.kind !== "review") return;
+    setMode({
+      kind: "review",
+      review: {
+        ...mode.review,
+        rows: [
+          ...mode.review.rows,
+          {
+            key: `new-${Date.now()}`,
+            source: {
+              raw_name: "",
+              quantity: 1,
+              unit: "un",
+              price: null,
+              brand: null,
+              suggested_type: null,
+            },
+            include: true,
+            productId: null,
+            typeText: "",
+            quantity: 1,
+            unit: "un",
+          },
+        ],
+      },
+    });
+  }
+
   function handleConfirm() {
     if (mode.kind !== "review") return;
     setConfirmError(null);
 
-    const inputs: ReceiptItemInput[] = mode.rows
+    const inputs: ReceiptItemInput[] = mode.review.rows
       .filter((r) => r.include && r.typeText.trim().length > 0)
       .map((r) => ({
         product_id: r.productId,
@@ -204,18 +265,21 @@ export function TicketView({ catalog }: Props) {
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
+        onChange={(e) => {
+          onFileChange(e.target.files?.[0] ?? null);
+          // Reset para poder cargar el mismo file dos veces (raro pero posible).
+          e.target.value = "";
+        }}
       />
 
       <div className="flex-1 px-4 py-4 space-y-4 pb-32">
         {mode.kind === "pick" && <PickState onPick={openPicker} />}
 
         {mode.kind === "analyzing" && (
-          <AnalyzingState previewUrl={mode.previewUrl} />
-        )}
-
-        {mode.kind === "uploading" && (
-          <AnalyzingState previewUrl={mode.previewUrl} />
+          <AnalyzingState
+            previewUrl={mode.previewUrl}
+            existingReview={mode.existingReview}
+          />
         )}
 
         {mode.kind === "error" && (
@@ -223,49 +287,25 @@ export function TicketView({ catalog }: Props) {
             message={mode.message}
             onRetry={openPicker}
             previewUrl={mode.previewUrl}
+            existingReview={mode.existingReview}
           />
         )}
 
         {mode.kind === "review" && (
           <ReviewState
-            previewUrl={mode.previewUrl}
-            parsed={mode.parsed}
-            rows={mode.rows}
+            review={mode.review}
             confirming={confirming}
             confirmError={confirmError}
             onUpdate={updateRow}
             onSetTypeText={setTypeText}
-            onAddBlank={() => {
-              setMode({
-                ...mode,
-                rows: [
-                  ...mode.rows,
-                  {
-                    key: `new-${Date.now()}`,
-                    source: {
-                      raw_name: "",
-                      quantity: 1,
-                      unit: "un",
-                      price: null,
-                      brand: null,
-                      suggested_type: null,
-                    },
-                    include: true,
-                    productId: null,
-                    typeText: "",
-                    quantity: 1,
-                    unit: "un",
-                  },
-                ],
-              });
-            }}
-            onRetry={openPicker}
+            onAddBlank={addBlank}
+            onAddPhoto={openPicker}
           />
         )}
       </div>
 
       {mode.kind === "review" && (
-        <div className="fixed bottom-16 inset-x-0 px-4 pb-3 pt-2 bg-background/95 backdrop-blur border-t border-border z-10">
+        <div className="fixed bottom-16 inset-x-0 px-4 pb-3 pt-2 bg-background/95 backdrop-blur border-t border-border z-10 md:bottom-0">
           <div className="max-w-3xl mx-auto flex gap-2">
             <Link
               href="/compras"
@@ -287,7 +327,7 @@ export function TicketView({ catalog }: Props) {
                 <Check className="size-4" />
               )}
               Cargar{" "}
-              {mode.rows.filter(
+              {mode.review.rows.filter(
                 (r) => r.include && r.typeText.trim().length > 0,
               ).length}{" "}
               al inventario
@@ -316,8 +356,8 @@ function PickState({ onPick }: { onPick: () => void }) {
           como lotes en tu inventario.
         </p>
         <p className="text-xs text-muted-foreground/80 pt-1">
-          Funciona mejor con buena luz y el ticket plano. Si es muy largo,
-          podés sacar varias fotos y cargarlas una a una.
+          Si el ticket es muy largo, podés sumar varias fotos en la misma
+          sesión — los items se acumulan y los cargás todos juntos al final.
         </p>
       </div>
       <Button onClick={onPick} size="lg">
@@ -332,13 +372,28 @@ function PickState({ onPick }: { onPick: () => void }) {
   );
 }
 
-function AnalyzingState({ previewUrl }: { previewUrl: string }) {
+function AnalyzingState({
+  previewUrl,
+  existingReview,
+}: {
+  previewUrl: string;
+  existingReview: ReviewState | null;
+}) {
+  const photoNumber = (existingReview?.previewUrls.length ?? 0) + 1;
   return (
     <div className="space-y-3">
+      {existingReview && existingReview.rows.length > 0 && (
+        <div className="rounded-lg border border-border bg-card p-3 text-xs text-muted-foreground">
+          Mantenemos {existingReview.rows.length} item
+          {existingReview.rows.length === 1 ? "" : "s"} de la
+          {existingReview.previewUrls.length > 1 ? "s fotos previas" : " foto previa"}
+          . La nueva se va a sumar.
+        </div>
+      )}
       <PreviewImage src={previewUrl} />
       <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" />
-        Analizando el ticket…
+        Analizando foto {photoNumber}…
       </div>
       <p className="text-xs text-muted-foreground text-center">
         Esto puede tardar 5-15 segundos según el tamaño del ticket.
@@ -350,10 +405,12 @@ function AnalyzingState({ previewUrl }: { previewUrl: string }) {
 function ErrorState({
   message,
   previewUrl,
+  existingReview,
   onRetry,
 }: {
   message: string;
   previewUrl: string | null;
+  existingReview: ReviewState | null;
   onRetry: () => void;
 }) {
   return (
@@ -364,6 +421,12 @@ function ErrorState({
         <div>
           <p className="font-medium">No pudimos procesar el ticket.</p>
           <p className="text-xs text-muted-foreground mt-0.5">{message}</p>
+          {existingReview && existingReview.rows.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Lo cargado de las fotos anteriores ({existingReview.rows.length}{" "}
+              items) sigue ahí.
+            </p>
+          )}
         </div>
       </div>
       <Button onClick={onRetry} variant="outline" className="w-full">
@@ -379,26 +442,25 @@ function ErrorState({
 // ----------------------------------------------------------------------------
 
 function ReviewState({
-  previewUrl,
-  parsed,
-  rows,
+  review,
   confirming,
   confirmError,
   onUpdate,
   onSetTypeText,
   onAddBlank,
-  onRetry,
+  onAddPhoto,
 }: {
-  previewUrl: string;
-  parsed: ParsedReceipt;
-  rows: ReviewRow[];
+  review: ReviewState;
   confirming: boolean;
   confirmError: string | null;
   onUpdate: (key: string, patch: Partial<ReviewRow>) => void;
   onSetTypeText: (key: string, text: string) => void;
   onAddBlank: () => void;
-  onRetry: () => void;
+  onAddPhoto: () => void;
 }) {
+  const { previewUrls, parsed, rows } = review;
+  const photoCount = previewUrls.length;
+
   const matchedCount = rows.filter(
     (r) => r.include && r.productId !== null,
   ).length;
@@ -409,39 +471,56 @@ function ReviewState({
     (r) => r.include && r.typeText.trim().length === 0,
   ).length;
 
+  // Resumen agregado: stores únicos, totales sumados.
+  const stores = Array.from(new Set(parsed.map((p) => p.store).filter(Boolean)));
+  const totalSum = parsed.reduce(
+    (acc, p) => (p.total !== null ? acc + p.total : acc),
+    0,
+  );
+  const hasErrorHints = parsed.some((p) => p.error_hint);
+
   return (
     <div className="space-y-4">
       <details className="rounded-lg border border-border bg-card overflow-hidden">
         <summary className="px-3 py-2 text-xs text-muted-foreground cursor-pointer hover:bg-accent/40">
-          {parsed.store ? `Ticket de ${parsed.store}` : "Imagen del ticket"}
-          {parsed.total !== null && ` · total $${parsed.total}`}
-          {parsed.items.length > 0 && ` · ${parsed.items.length} items detectados`}
+          {photoCount === 1
+            ? stores[0]
+              ? `Ticket de ${stores[0]}`
+              : "Foto del ticket"
+            : `${photoCount} fotos del ticket`}
+          {totalSum > 0 && ` · total $${formatPrice(totalSum)}`}
+          {` · ${rows.length} items detectados`}
         </summary>
-        <div className="border-t border-border p-2">
-          <PreviewImage src={previewUrl} />
+        <div className="border-t border-border p-2 grid grid-cols-2 gap-2">
+          {previewUrls.map((url, i) => (
+            <PreviewImage key={i} src={url} />
+          ))}
         </div>
       </details>
 
-      {parsed.error_hint && (
+      {hasErrorHints && (
         <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 text-sm flex items-start gap-2">
           <TriangleAlert className="size-4 text-warning-foreground mt-0.5 shrink-0" />
-          <div>
-            <p className="font-medium">Atención:</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {parsed.error_hint}
-            </p>
-            <Button
-              onClick={onRetry}
-              variant="ghost"
-              size="sm"
-              className="mt-2 h-7"
-            >
-              <Camera className="size-3.5" />
-              Probar con otra foto
-            </Button>
+          <div className="text-xs text-muted-foreground">
+            {parsed
+              .filter((p) => p.error_hint)
+              .map((p, i) => (
+                <p key={i}>· {p.error_hint}</p>
+              ))}
           </div>
         </div>
       )}
+
+      {/* Botón "Sumar otra foto" */}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onAddPhoto}
+        className="w-full"
+      >
+        <Camera className="size-4" />
+        Sumar otra foto del mismo ticket
+      </Button>
 
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground space-y-2">
@@ -456,8 +535,7 @@ function ReviewState({
           <div className="text-xs text-muted-foreground">
             {matchedCount} item{matchedCount === 1 ? "" : "s"} matcheado
             {matchedCount === 1 ? "" : "s"} al catálogo
-            {newCount > 0 &&
-              ` · ${newCount} se crearán como tipo nuevo`}
+            {newCount > 0 && ` · ${newCount} se crearán como tipo nuevo`}
             {unmatchedCount > 0 &&
               ` · ${unmatchedCount} sin tipo (no se cargarán)`}
             .
@@ -483,7 +561,8 @@ function ReviewState({
         onClick={onAddBlank}
         className="w-full"
       >
-        + Agregar item suelto
+        <Plus className="size-4" />
+        Agregar item suelto
       </Button>
 
       {confirmError && (
@@ -496,9 +575,7 @@ function ReviewState({
       )}
 
       {confirming && (
-        <p className="text-xs text-muted-foreground text-center">
-          Cargando…
-        </p>
+        <p className="text-xs text-muted-foreground text-center">Cargando…</p>
       )}
     </div>
   );
@@ -570,9 +647,7 @@ function ReviewRowItem({
             />
             <select
               value={row.unit}
-              onChange={(e) =>
-                onUpdate({ unit: e.target.value as Unit })
-              }
+              onChange={(e) => onUpdate({ unit: e.target.value as Unit })}
               className="h-8 px-2 rounded-md border border-input bg-transparent text-sm"
             >
               {Object.entries(UNIT_LABELS).map(([u, label]) => (
@@ -588,7 +663,6 @@ function ReviewRowItem({
             )}
           </div>
 
-          {/* Hints */}
           {hasMatch && (
             <p className="text-[10px] text-primary mt-1.5 inline-flex items-center gap-1">
               <Check className="size-2.5" />
@@ -626,8 +700,30 @@ function ReviewRowItem({
 }
 
 // ----------------------------------------------------------------------------
-// Image helpers
+// Helpers
 // ----------------------------------------------------------------------------
+
+function buildRows(
+  items: ReceiptItem[],
+  catalogByLowerName: Map<string, CatalogEntry>,
+): ReviewRow[] {
+  return items.map((item, idx) => {
+    const suggested = item.suggested_type ?? "";
+    const suggestedLower = suggested.toLowerCase();
+    const matched = suggested
+      ? catalogByLowerName.get(suggestedLower)
+      : undefined;
+    return {
+      key: `r-${Date.now()}-${idx}`,
+      source: item,
+      include: true,
+      productId: matched?.id ?? null,
+      typeText: matched ? matched.name : suggested,
+      quantity: item.quantity,
+      unit: item.unit,
+    };
+  });
+}
 
 function PreviewImage({ src }: { src: string }) {
   return (
@@ -640,6 +736,13 @@ function PreviewImage({ src }: { src: string }) {
   );
 }
 
+function formatPrice(n: number): string {
+  return n.toLocaleString("es-AR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
 /**
  * Comprime + redimensiona la imagen elegida. Devuelve base64 puro (sin
  * prefijo data:) listo para mandar al endpoint.
@@ -649,14 +752,11 @@ async function prepareImage(file: File): Promise<{
   mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif";
   previewUrl: string;
 }> {
-  // PNG/WebP los pasamos tal cual (suelen ser screenshots). Los JPG los
-  // recomprimimos con canvas para bajar tamaño.
   const isJpeg = file.type === "image/jpeg";
 
   const dataUrl = await readFileAsDataUrl(file);
 
   if (!isJpeg || file.size <= 800 * 1024) {
-    // Igual los pasamos por canvas si están muy grandes, pero si no, va tal cual.
     const compressed = await compressViaCanvas(dataUrl);
     return {
       base64: compressed.base64,
@@ -687,7 +787,6 @@ async function compressViaCanvas(
 ): Promise<{ base64: string; dataUrl: string }> {
   const img = await loadImage(dataUrl);
 
-  // Redimensiono para que el lado más largo sea MAX_DIMENSION.
   let { width, height } = img;
   if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
     const scale = MAX_DIMENSION / Math.max(width, height);
@@ -714,67 +813,4 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.onerror = () => reject(new Error("No pudimos cargar la imagen."));
     img.src = src;
   });
-}
-
-function buildRows(
-  items: ReceiptItem[],
-  catalog: CatalogEntry[],
-  catalogByLowerName: Map<string, CatalogEntry>,
-): ReviewRow[] {
-  return items.map((it, i) => {
-    let productId: string | null = null;
-    let typeText = "";
-
-    if (it.suggested_type) {
-      const exact = catalogByLowerName.get(it.suggested_type.toLowerCase());
-      if (exact) {
-        productId = exact.id;
-        typeText = exact.name;
-      } else {
-        // Fuzzy: substring tolerante
-        const fuzzy = findFuzzy(it.suggested_type, catalog);
-        if (fuzzy) {
-          productId = fuzzy.id;
-          typeText = fuzzy.name;
-        } else {
-          typeText = it.suggested_type;
-        }
-      }
-    }
-
-    return {
-      key: `row-${i}-${it.raw_name}`,
-      source: it,
-      include: true,
-      productId,
-      typeText,
-      quantity: it.quantity,
-      unit: it.unit,
-    };
-  });
-}
-
-function findFuzzy(text: string, catalog: CatalogEntry[]): CatalogEntry | null {
-  const tokens = tokenize(text);
-  if (tokens.length === 0) return null;
-  let best: { entry: CatalogEntry; score: number } | null = null;
-  for (const c of catalog) {
-    const ctok = tokenize(c.name);
-    if (ctok.length === 0) continue;
-    const shared = ctok.filter((t) => tokens.includes(t)).length;
-    if (shared === 0) continue;
-    const bonus = text.toLowerCase().includes(c.name.toLowerCase()) ? 2 : 0;
-    const score = shared + bonus;
-    if (!best || score > best.score) best = { entry: c, score };
-  }
-  return best && best.score >= 1 ? best.entry : null;
-}
-
-function tokenize(text: string): string[] {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .split(/[^a-z0-9]+/)
-    .filter((t) => t.length >= 4);
 }

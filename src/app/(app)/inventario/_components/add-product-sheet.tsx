@@ -493,8 +493,8 @@ function CreateForm({
               else setOpenedState(next ?? empty);
             }}
           />
-          <span className="text-[10px] text-muted-foreground/80">
-            tocá ❄ o 🚪 si aplica
+          <span className="text-[11px] text-muted-foreground/80">
+            si está freezado o abierto
           </span>
         </div>
       </fieldset>

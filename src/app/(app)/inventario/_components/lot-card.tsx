@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   CalendarClock,
-  DoorOpen,
   Loader2,
+  PackageOpen,
   Pencil,
   Snowflake,
   Trash2,
@@ -103,7 +103,7 @@ export function LotCard({ lot, unit, warningDays, onEdit }: Props) {
             )}
             {lot.opened_at && (
               <span className="inline-flex items-center gap-1 text-primary">
-                <DoorOpen className="size-3" />
+                <PackageOpen className="size-3" />
                 Abierto {formatShortDate(lot.opened_at)}
                 {lot.opened_max_days && ` · máx ${lot.opened_max_days}d`}
               </span>

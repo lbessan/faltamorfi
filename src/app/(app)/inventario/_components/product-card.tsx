@@ -217,7 +217,10 @@ function LotRow({
             }`}
           >
             <CalendarClock className="size-3" />
-            {expInfo.label}
+            <span className="text-muted-foreground/70">Vence:</span>
+            <span className={expInfo.urgent ? "font-medium" : ""}>
+              {expInfo.label}
+            </span>
           </span>
         )}
       </div>
@@ -242,16 +245,16 @@ function LotRow({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-7"
+            className="size-8"
             onClick={consume}
             disabled={pending || qty <= 0}
             aria-label="Consumir uno"
             title="Consumir uno"
           >
             {pending ? (
-              <Loader2 className="size-3.5 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Minus className="size-3.5" />
+              <Minus className="size-4" />
             )}
           </Button>
         </div>

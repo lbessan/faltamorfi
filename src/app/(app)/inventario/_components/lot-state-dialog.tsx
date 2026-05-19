@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { DoorOpen, Loader2, Snowflake, Sparkles, Trash2 } from "lucide-react";
+import { Loader2, PackageOpen, Snowflake, Sparkles, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,7 +91,7 @@ const KIND_COPY = {
     disableCta: "Cerrar y resetear",
     iconClass: "text-primary",
     endpoint: "opened-lifetime" as const,
-    icon: DoorOpen,
+    icon: PackageOpen,
   },
 } as const;
 
@@ -444,17 +444,17 @@ export function LotStateIconButton({
   kind,
   active,
   onClick,
-  size = "sm",
+  size = "md",
 }: {
   kind: LotStateKind;
   active: boolean;
   onClick: () => void;
   size?: "sm" | "md";
 }) {
-  const Icon = kind === "frozen" ? Snowflake : DoorOpen;
+  const Icon = kind === "frozen" ? Snowflake : PackageOpen;
   const label = kind === "frozen" ? "Freezer" : "Abierto en heladera";
   const sizeClasses =
-    size === "md" ? "size-9 [&_svg]:size-4" : "size-7 [&_svg]:size-3.5";
+    size === "md" ? "size-8 [&_svg]:size-4" : "size-7 [&_svg]:size-3.5";
   return (
     <button
       type="button"

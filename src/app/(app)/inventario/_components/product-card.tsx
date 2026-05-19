@@ -7,11 +7,9 @@ import {
   CalendarClock,
   ChevronDown,
   ChevronUp,
-  DoorOpen,
   Loader2,
   Minus,
   Plus,
-  Snowflake,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +19,7 @@ import type { ConsumptionRate } from "@/lib/db/predictions";
 import { effectiveExpiry } from "@/lib/expiry";
 import { DynamicIcon } from "@/lib/icon-map";
 import { consumeLotAction } from "../actions";
+import { LotStateControls } from "./lot-state-dialog";
 
 type Props = {
   product: ProductWithLots;
@@ -129,6 +128,8 @@ export function ProductCard({
               <LotRow
                 key={lot.id}
                 lot={lot}
+                productName={product.name}
+                productCategory={product.category}
                 unitLabel={unitLabel}
                 step={step}
                 warningDays={warningDays}
@@ -166,12 +167,16 @@ export function ProductCard({
 
 function LotRow({
   lot,
+  productName,
+  productCategory,
   unitLabel,
   step,
   warningDays,
   canEdit,
 }: {
   lot: LotSummary;
+  productName: string;
+  productCategory: string | null;
   unitLabel: string;
   step: number;
   warningDays: number;
@@ -195,7 +200,10 @@ function LotRow({
   return (
     <li className="px-3 py-2 flex items-center gap-2">
       <span className="font-medium tabular-nums text-sm shrink-0 w-12">
-        {formatQuantity(qty)} <span className="text-[10px] text-muted-foreground font-normal">{unitLabel}</span>
+        {formatQuantity(qty)}{" "}
+        <span className="text-[10px] text-muted-foreground font-normal">
+          {unitLabel}
+        </span>
       </span>
 
       <div className="flex-1 min-w-0 flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs">
@@ -212,41 +220,41 @@ function LotRow({
             {expInfo.label}
           </span>
         )}
-        {lot.frozen_at && (
-          <span
-            className="inline-flex items-center gap-1 text-primary"
-            title="En el freezer"
-          >
-            <Snowflake className="size-3" />
-          </span>
-        )}
-        {lot.opened_at && (
-          <span
-            className="inline-flex items-center gap-1 text-primary"
-            title="Abierto en heladera"
-          >
-            <DoorOpen className="size-3" />
-          </span>
-        )}
       </div>
 
       {canEdit && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-7 shrink-0"
-          onClick={consume}
-          disabled={pending || qty <= 0}
-          aria-label="Consumir uno"
-          title="Consumir"
-        >
-          {pending ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <Minus className="size-3.5" />
-          )}
-        </Button>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <LotStateControls
+            lotId={lot.id}
+            productName={productName}
+            productCategory={productCategory}
+            productBrand={lot.brand}
+            frozen={{
+              date: lot.frozen_at ? lot.frozen_at.slice(0, 10) : null,
+              maxDays: lot.frozen_max_days ?? null,
+            }}
+            opened={{
+              date: lot.opened_at ? lot.opened_at.slice(0, 10) : null,
+              maxDays: lot.opened_max_days ?? null,
+            }}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            onClick={consume}
+            disabled={pending || qty <= 0}
+            aria-label="Consumir uno"
+            title="Consumir uno"
+          >
+            {pending ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Minus className="size-3.5" />
+            )}
+          </Button>
+        </div>
       )}
     </li>
   );

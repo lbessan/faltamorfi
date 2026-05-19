@@ -53,6 +53,7 @@ export function InventoryView({
 
   const [query, setQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [addOpenKey, setAddOpenKey] = useState(0);
   const [addPrefill, setAddPrefill] = useState<LotPrefill | null>(null);
   const [addSuggestedMatch, setAddSuggestedMatch] =
     useState<ProductWithLots | null>(null);
@@ -93,6 +94,7 @@ export function InventoryView({
   const openAddManual = useCallback(() => {
     setAddPrefill(null);
     setAddSuggestedMatch(null);
+    setAddOpenKey((k) => k + 1);
     setAddOpen(true);
   }, []);
 
@@ -154,6 +156,7 @@ export function InventoryView({
         }
         setAddPrefill(prefill);
         setAddSuggestedMatch(suggested);
+        setAddOpenKey((k) => k + 1);
         setAddOpen(true);
       });
     },
@@ -287,6 +290,7 @@ export function InventoryView({
 
       <AddProductSheet
         open={addOpen}
+        openKey={addOpenKey}
         onOpenChange={(open) => {
           setAddOpen(open);
           if (!open) {

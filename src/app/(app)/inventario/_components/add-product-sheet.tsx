@@ -23,6 +23,10 @@ import {
 } from "@/components/ui/select";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import {
+  LotStateControls,
+  type LotStateValues,
+} from "./lot-state-dialog";
+import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
@@ -49,6 +53,12 @@ type Props = {
   suggestedMatch?: ProductWithLots | null;
   /** Si está definido, mostramos botón "Escanear código de barras". */
   onScanClick?: () => void;
+  /**
+   * Counter incremental que cambia cada vez que el padre abre el sheet. Lo
+   * usamos para resetear el modo interno (create/addToExisting) y no quedar
+   * "pegado" en el último producto que el usuario eligió desde el combobox.
+   */
+  openKey?: number;
 };
 
 type Mode =
@@ -62,6 +72,7 @@ export function AddProductSheet({
   prefill,
   suggestedMatch,
   onScanClick,
+  openKey = 0,
 }: Props) {
   // Si hay un suggested match, arrancamos en modo "agregar a existente".
   const initialMode: Mode = suggestedMatch
@@ -70,8 +81,9 @@ export function AddProductSheet({
 
   const [mode, setMode] = useState<Mode>(initialMode);
 
-  // Reset cuando cambia el suggested match o el prefill (re-key reset).
-  const resetKey = `${suggestedMatch?.id ?? "none"}-${prefill?.barcode ?? "none"}`;
+  // Reset cuando cambia el suggested match, el prefill o el openKey
+  // (incremental, se actualiza cuando el padre reabre el sheet a mano).
+  const resetKey = `${openKey}-${suggestedMatch?.id ?? "none"}-${prefill?.barcode ?? "none"}`;
   const [prevResetKey, setPrevResetKey] = useState(resetKey);
   if (prevResetKey !== resetKey) {
     setPrevResetKey(resetKey);
@@ -245,6 +257,14 @@ function CreateForm({
   );
   const [brand, setBrand] = useState<string>(prefill?.brand ?? "");
   const [barcode, setBarcode] = useState<string>(prefill?.barcode ?? "");
+  const [frozenState, setFrozenState] = useState<LotStateValues>({
+    date: null,
+    maxDays: null,
+  });
+  const [openedState, setOpenedState] = useState<LotStateValues>({
+    date: null,
+    maxDays: null,
+  });
 
   // Opciones para el combobox = catálogo del hogar (productos activos).
   const options: ComboboxOption<ProductWithLots>[] = catalog
@@ -304,10 +324,14 @@ function CreateForm({
         lot: {
           quantity: qty,
           expires_on: expiresOn || null,
-          frozen_at: null,
-          frozen_max_days: null,
-          opened_at: null,
-          opened_max_days: null,
+          frozen_at: frozenState.date
+            ? new Date(`${frozenState.date}T00:00:00`).toISOString()
+            : null,
+          frozen_max_days: frozenState.maxDays,
+          opened_at: openedState.date
+            ? new Date(`${openedState.date}T00:00:00`).toISOString()
+            : null,
+          opened_max_days: openedState.maxDays,
           brand: brand.trim() || null,
           barcode: barcode.trim() || null,
           image_url: prefill?.image_url ?? null,
@@ -455,10 +479,24 @@ function CreateForm({
           </div>
         </div>
 
-        <p className="text-[11px] text-muted-foreground">
-          Si después lo guardás en el freezer o lo abrís en la heladera,
-          marcalo desde el detalle del lote.
-        </p>
+        <div className="flex items-center gap-2 pt-1">
+          <span className="text-[11px] text-muted-foreground">Estado:</span>
+          <LotStateControls
+            productName={name.trim() || "este lote"}
+            productCategory={category.trim() || null}
+            productBrand={brand.trim() || null}
+            frozen={frozenState}
+            opened={openedState}
+            onChange={(kind, next) => {
+              const empty = { date: null, maxDays: null };
+              if (kind === "frozen") setFrozenState(next ?? empty);
+              else setOpenedState(next ?? empty);
+            }}
+          />
+          <span className="text-[10px] text-muted-foreground/80">
+            tocá ❄ o 🚪 si aplica
+          </span>
+        </div>
       </fieldset>
 
       {error && (
@@ -504,6 +542,14 @@ function AddLotToExistingForm({
   const [expiresOn, setExpiresOn] = useState<string>(prefill?.expires_on ?? "");
   const [brand, setBrand] = useState<string>(prefill?.brand ?? "");
   const [barcode, setBarcode] = useState<string>(prefill?.barcode ?? "");
+  const [frozenState, setFrozenState] = useState<LotStateValues>({
+    date: null,
+    maxDays: null,
+  });
+  const [openedState, setOpenedState] = useState<LotStateValues>({
+    date: null,
+    maxDays: null,
+  });
 
   function handleSubmit() {
     setError(null);
@@ -517,6 +563,14 @@ function AddLotToExistingForm({
       product_id: product.id,
       quantity: qty,
       expires_on: expiresOn || null,
+      frozen_at: frozenState.date
+        ? new Date(`${frozenState.date}T00:00:00`).toISOString()
+        : null,
+      frozen_max_days: frozenState.maxDays,
+      opened_at: openedState.date
+        ? new Date(`${openedState.date}T00:00:00`).toISOString()
+        : null,
+      opened_max_days: openedState.maxDays,
       brand: brand.trim() || null,
       barcode: barcode.trim() || null,
       image_url: prefill?.image_url ?? null,
@@ -581,6 +635,25 @@ function AddLotToExistingForm({
             autoComplete="off"
           />
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        <span className="text-[11px] text-muted-foreground">Estado:</span>
+        <LotStateControls
+          productName={product.name}
+          productCategory={product.category}
+          productBrand={brand.trim() || null}
+          frozen={frozenState}
+          opened={openedState}
+          onChange={(kind, next) => {
+            const empty = { date: null, maxDays: null };
+            if (kind === "frozen") setFrozenState(next ?? empty);
+            else setOpenedState(next ?? empty);
+          }}
+        />
+        <span className="text-[10px] text-muted-foreground/80">
+          tocá ❄ o 🚪 si aplica
+        </span>
       </div>
 
       {error && (

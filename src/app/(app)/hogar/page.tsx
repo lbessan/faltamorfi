@@ -6,7 +6,6 @@ import {
   listHouseholdMembers,
   requireCurrentHousehold,
 } from "@/lib/db/household";
-import { listLocations } from "@/lib/db/locations";
 import { getOrCreateUserPreferences } from "@/lib/db/preferences";
 import { listProducts } from "@/lib/db/products";
 import { listActiveInvitations } from "@/lib/db/invitations";
@@ -30,8 +29,7 @@ export default async function HogarPage() {
     ? await getCurrentHouseholdRole(supabase, household.id)
     : null;
 
-  const [locations, prefs, products, members, invitations] = await Promise.all([
-    listLocations(supabase, household.id),
+  const [prefs, products, members, invitations] = await Promise.all([
     user
       ? getOrCreateUserPreferences(supabase, user.id)
       : Promise.resolve(null),
@@ -76,22 +74,6 @@ export default async function HogarPage() {
       />
 
       {role === "owner" && <TypesSettings products={products} />}
-
-      <section className="space-y-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Ubicaciones
-        </h2>
-        <ul className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
-          {locations.map((loc) => (
-            <li key={loc.id} className="px-4 py-3 flex items-center gap-3">
-              <span className="text-sm">{loc.name}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="text-xs text-muted-foreground/80 px-1 pt-1">
-          La edición de ubicaciones viene en una próxima iteración.
-        </p>
-      </section>
     </div>
   );
 }

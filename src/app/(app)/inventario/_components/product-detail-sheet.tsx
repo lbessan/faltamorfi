@@ -26,11 +26,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UNIT_LABELS, type Location, type Unit } from "@/lib/database.types";
-import {
-  listStockItems,
-  type StockItemWithLocation,
-} from "@/lib/db/stock-items";
+import { UNIT_LABELS, type Unit } from "@/lib/database.types";
+import { listStockItems, type Lot } from "@/lib/db/stock-items";
 import {
   fetchRecentConsumption,
   formatDailyRate,
@@ -40,7 +37,7 @@ import {
   type RecentConsumption,
 } from "@/lib/db/predictions";
 import { createClient } from "@/lib/supabase/client";
-import type { ProductWithLocation } from "@/lib/db/products";
+import type { ProductWithLots } from "@/lib/db/products";
 import { lookupBarcode } from "@/lib/openfoodfacts";
 import { BarcodeScannerSheet } from "@/components/barcode-scanner";
 import {
@@ -53,8 +50,7 @@ import { LotForm, type LotPrefill } from "./lot-form";
 import { ProductForm } from "./product-form";
 
 type Props = {
-  product: ProductWithLocation | null;
-  locations: Location[];
+  product: ProductWithLots | null;
   warningDays: number;
   canEdit: boolean;
   rate?: ConsumptionRate;
@@ -65,7 +61,6 @@ type Mode = "view" | "editProduct";
 
 export function ProductDetailSheet({
   product,
-  locations,
   warningDays,
   canEdit,
   rate,
@@ -88,7 +83,6 @@ export function ProductDetailSheet({
         {product && mode === "view" && (
           <ViewMode
             product={product}
-            locations={locations}
             warningDays={warningDays}
             canEdit={canEdit}
             rate={rate}
@@ -108,7 +102,6 @@ export function ProductDetailSheet({
             <div className="px-4 pb-6">
               <ProductForm
                 action={updateProductAction}
-                locations={locations}
                 product={product}
                 submitLabel="Guardar cambios"
                 onSuccess={() => setMode("view")}
@@ -125,15 +118,13 @@ export function ProductDetailSheet({
 
 function ViewMode({
   product,
-  locations,
   warningDays,
   canEdit,
   rate,
   onEditProduct,
   onClose,
 }: {
-  product: ProductWithLocation;
-  locations: Location[];
+  product: ProductWithLots;
   warningDays: number;
   canEdit: boolean;
   rate?: ConsumptionRate;
@@ -143,7 +134,7 @@ function ViewMode({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const [lots, setLots] = useState<StockItemWithLocation[] | null>(null);
+  const [lots, setLots] = useState<Lot[] | null>(null);
   const [lotsError, setLotsError] = useState<string | null>(null);
   const [showAddLot, setShowAddLot] = useState(false);
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
@@ -416,8 +407,6 @@ function ViewMode({
               productId={product.id}
               productName={product.name}
               productCategory={product.category}
-              locations={locations}
-              defaultLocationId={product.default_location_id}
               prefill={lotPrefill ?? undefined}
               onScanClick={openScanner}
               onClose={closeLotForm}
@@ -455,7 +444,6 @@ function ViewMode({
                       productId={product.id}
                       productName={product.name}
                       productCategory={product.category}
-                      locations={locations}
                       lot={lot}
                       onClose={closeLotForm}
                     />
@@ -540,7 +528,7 @@ function ConsumptionSection({
   qty,
   unitLabel,
 }: {
-  product: ProductWithLocation;
+  product: ProductWithLots;
   rate?: ConsumptionRate;
   history: RecentConsumption[] | null;
   qty: number;

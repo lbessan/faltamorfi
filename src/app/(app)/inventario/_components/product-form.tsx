@@ -13,29 +13,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { UNITS, UNIT_LABELS, type Location, type Unit } from "@/lib/database.types";
-import {
-  EMPTY_VALUE_SENTINEL,
-  INITIAL_ACTION_STATE,
-  type ActionState,
-} from "../constants";
-import type { ProductWithLocation } from "@/lib/db/products";
-
-const NO_LOCATION_VALUE = EMPTY_VALUE_SENTINEL;
+import { UNITS, UNIT_LABELS, type Unit } from "@/lib/database.types";
+import { INITIAL_ACTION_STATE, type ActionState } from "../constants";
+import type { ProductWithLots } from "@/lib/db/products";
 
 export type ProductFormDefaults = {
   name?: string;
   category?: string;
   unit?: Unit;
   low_stock_threshold?: number;
-  default_location_id?: string | null;
   notes?: string;
 };
 
 type Props = {
   action: (state: ActionState, formData: FormData) => Promise<ActionState>;
-  locations: Location[];
-  product?: ProductWithLocation;
+  product?: ProductWithLots;
   initialValues?: ProductFormDefaults;
   submitLabel: string;
   onSuccess?: () => void;
@@ -43,7 +35,6 @@ type Props = {
 
 export function ProductForm({
   action,
-  locations,
   product,
   initialValues,
   submitLabel,
@@ -123,25 +114,6 @@ export function ProductForm({
         </Field>
       </div>
 
-      <Field id="default_location_id" label="Ubicación habitual">
-        <Select
-          name="default_location_id"
-          defaultValue={defaults.default_location_id}
-        >
-          <SelectTrigger id="default_location_id" className="w-full">
-            <SelectValue placeholder="Elegí una ubicación" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_LOCATION_VALUE}>Sin asignar</SelectItem>
-            {locations.map((loc) => (
-              <SelectItem key={loc.id} value={loc.id}>
-                {loc.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-
       <Field id="notes" label="Notas del tipo (opcional)">
         <Input
           id="notes"
@@ -170,7 +142,7 @@ export function ProductForm({
 }
 
 function buildDefaults(
-  product: ProductWithLocation | undefined,
+  product: ProductWithLots | undefined,
   initial: ProductFormDefaults | undefined,
 ) {
   if (product) {
@@ -179,7 +151,6 @@ function buildDefaults(
       category: product.category ?? "",
       unit: (product.unit as Unit) ?? "un",
       low_stock_threshold: product.low_stock_threshold,
-      default_location_id: product.default_location_id ?? NO_LOCATION_VALUE,
       notes: product.notes ?? "",
     };
   }
@@ -188,7 +159,6 @@ function buildDefaults(
     category: initial?.category ?? "",
     unit: initial?.unit ?? ("un" as Unit),
     low_stock_threshold: initial?.low_stock_threshold ?? 1,
-    default_location_id: initial?.default_location_id ?? NO_LOCATION_VALUE,
     notes: initial?.notes ?? "",
   };
 }

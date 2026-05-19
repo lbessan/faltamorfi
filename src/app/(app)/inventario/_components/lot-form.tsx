@@ -7,17 +7,8 @@ import { DoorOpen, Loader2, ScanLine, Snowflake, Sparkles, X } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { LOCATION_KIND_LABELS, type Location } from "@/lib/database.types";
-import type { StockItemWithLocation } from "@/lib/db/stock-items";
+import type { Lot } from "@/lib/db/stock-items";
 import { addLotAction, updateLotAction, type LotInput } from "../actions";
-import { EMPTY_VALUE_SENTINEL } from "../constants";
 
 export type LotPrefill = {
   brand?: string | null;
@@ -31,10 +22,7 @@ type Props = {
   productId: string;
   productName: string;
   productCategory?: string | null;
-  locations: Location[];
-  lot?: StockItemWithLocation;
-  /** Default location id sugerido para nuevos lotes. */
-  defaultLocationId?: string | null;
+  lot?: Lot;
   /** Datos prellenados (típicamente desde Open Food Facts via escaneo). */
   prefill?: LotPrefill;
   /** Si está definido, se muestra botón "Escanear código" que invoca al padre. */
@@ -52,9 +40,7 @@ export function LotForm({
   productId,
   productName,
   productCategory,
-  locations,
   lot,
-  defaultLocationId,
   prefill,
   onScanClick,
   onClose,
@@ -72,9 +58,6 @@ export function LotForm({
   // Estado del form
   const [quantity, setQuantity] = useState<string>(
     lot ? String(lot.quantity) : "1",
-  );
-  const [locationId, setLocationId] = useState<string>(
-    lot?.location_id ?? defaultLocationId ?? EMPTY_VALUE_SENTINEL,
   );
   const [expiresOn, setExpiresOn] = useState<string>(
     lot?.expires_on ?? prefill?.expires_on ?? "",
@@ -108,8 +91,7 @@ export function LotForm({
     lot?.opened_max_days != null ? String(lot.opened_max_days) : "",
   );
 
-  const selectedLocation = locations.find((l) => l.id === locationId) ?? null;
-  const showFreezerFields = isFrozen || selectedLocation?.kind === "freezer";
+  const showFreezerFields = isFrozen;
   const showOpenedFields = isOpened;
 
   async function fetchLifetimeSuggestion(
@@ -180,8 +162,6 @@ export function LotForm({
     const payload: LotInput = {
       product_id: productId,
       quantity: qty,
-      location_id:
-        locationId === EMPTY_VALUE_SENTINEL ? null : locationId,
       expires_on: expiresOn || null,
       frozen_at:
         showFreezerFields && frozenAt
@@ -290,29 +270,6 @@ export function LotForm({
             onChange={(e) => setExpiresOn(e.target.value)}
           />
         </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="lot-location">Ubicación</Label>
-        <Select
-          value={locationId}
-          onValueChange={(v) => setLocationId(v ?? EMPTY_VALUE_SENTINEL)}
-        >
-          <SelectTrigger id="lot-location" className="w-full">
-            <SelectValue placeholder="Ubicación" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={EMPTY_VALUE_SENTINEL}>Sin asignar</SelectItem>
-            {locations.map((loc) => (
-              <SelectItem key={loc.id} value={loc.id}>
-                {loc.name}
-                <span className="text-muted-foreground ml-1 text-xs">
-                  · {LOCATION_KIND_LABELS[loc.kind] ?? "General"}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-2">

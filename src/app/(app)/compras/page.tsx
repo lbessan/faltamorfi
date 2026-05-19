@@ -4,7 +4,6 @@ import {
   getCurrentHouseholdRole,
   requireCurrentHousehold,
 } from "@/lib/db/household";
-import { listLocations } from "@/lib/db/locations";
 import { listProducts } from "@/lib/db/products";
 import { listShoppingItems } from "@/lib/db/shopping";
 import { fetchConsumptionRates, predictDaysLeft } from "@/lib/db/predictions";
@@ -20,8 +19,7 @@ const RUNNING_OUT_DAYS = 7;
 export default async function ComprasPage() {
   const supabase = await createClient();
   const household = await requireCurrentHousehold(supabase);
-  const [locations, products, shoppingItems, role, rates] = await Promise.all([
-    listLocations(supabase, household.id),
+  const [products, shoppingItems, role, rates] = await Promise.all([
     listProducts(supabase, household.id),
     listShoppingItems(supabase, household.id, ["pending", "checked"]),
     getCurrentHouseholdRole(supabase, household.id),
@@ -68,7 +66,6 @@ export default async function ComprasPage() {
       runningOut={runningOut}
       productsInList={productsInList}
       shoppingItems={shoppingItems}
-      locations={locations}
       canEdit={canEdit(role)}
       ratesByProduct={ratesByProduct}
     />

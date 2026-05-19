@@ -66,43 +66,6 @@ export type Database = {
           },
         ];
       };
-      locations: {
-        Row: {
-          id: string;
-          household_id: string;
-          name: string;
-          icon: string | null;
-          kind: LocationKind;
-          sort_order: number;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          household_id: string;
-          name: string;
-          icon?: string | null;
-          kind?: LocationKind;
-          sort_order?: number;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          household_id?: string;
-          name?: string;
-          icon?: string | null;
-          kind?: LocationKind;
-          sort_order?: number;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "locations_household_id_fkey";
-            columns: ["household_id"];
-            referencedRelation: "households";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       products: {
         Row: {
           id: string;
@@ -115,7 +78,6 @@ export type Database = {
           unit: string;
           quantity: number;
           low_stock_threshold: number;
-          default_location_id: string | null;
           notes: string | null;
           metadata: Json;
           created_at: string;
@@ -132,7 +94,6 @@ export type Database = {
           unit?: string;
           quantity?: number;
           low_stock_threshold?: number;
-          default_location_id?: string | null;
           notes?: string | null;
           metadata?: Json;
           created_at?: string;
@@ -149,7 +110,6 @@ export type Database = {
           unit?: string;
           quantity?: number;
           low_stock_threshold?: number;
-          default_location_id?: string | null;
           notes?: string | null;
           metadata?: Json;
           created_at?: string;
@@ -160,12 +120,6 @@ export type Database = {
             foreignKeyName: "products_household_id_fkey";
             columns: ["household_id"];
             referencedRelation: "households";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "products_default_location_id_fkey";
-            columns: ["default_location_id"];
-            referencedRelation: "locations";
             referencedColumns: ["id"];
           },
         ];
@@ -208,7 +162,6 @@ export type Database = {
         Row: {
           id: string;
           product_id: string;
-          location_id: string | null;
           quantity: number;
           expires_on: string | null;
           frozen_at: string | null;
@@ -225,7 +178,6 @@ export type Database = {
         Insert: {
           id?: string;
           product_id: string;
-          location_id?: string | null;
           quantity: number;
           expires_on?: string | null;
           frozen_at?: string | null;
@@ -242,7 +194,6 @@ export type Database = {
         Update: {
           id?: string;
           product_id?: string;
-          location_id?: string | null;
           quantity?: number;
           expires_on?: string | null;
           frozen_at?: string | null;
@@ -261,12 +212,6 @@ export type Database = {
             foreignKeyName: "stock_items_product_id_fkey";
             columns: ["product_id"];
             referencedRelation: "products";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "stock_items_location_id_fkey";
-            columns: ["location_id"];
-            referencedRelation: "locations";
             referencedColumns: ["id"];
           },
         ];
@@ -467,7 +412,6 @@ export type UpdateTable<T extends keyof Database["public"]["Tables"]> =
 
 export type Household = Tables<"households">;
 export type HouseholdMember = Tables<"household_members">;
-export type Location = Tables<"locations">;
 export type Product = Tables<"products">;
 export type ConsumptionLog = Tables<"consumption_log">;
 export type StockItem = Tables<"stock_items">;
@@ -496,27 +440,6 @@ export function canEdit(role: HouseholdRole | null | undefined): boolean {
 export function isOwner(role: HouseholdRole | null | undefined): boolean {
   return role === "owner";
 }
-
-export const LOCATION_KINDS = [
-  "general",
-  "pantry",
-  "fridge",
-  "freezer",
-  "medicine",
-  "cleaning",
-  "other",
-] as const;
-export type LocationKind = (typeof LOCATION_KINDS)[number];
-
-export const LOCATION_KIND_LABELS: Record<LocationKind, string> = {
-  general: "General",
-  pantry: "Alacena",
-  fridge: "Heladera",
-  freezer: "Freezer",
-  medicine: "Botiquín",
-  cleaning: "Limpieza",
-  other: "Otro",
-};
 
 // ----------------------------------------------------------------------------
 // Departamentos del catálogo

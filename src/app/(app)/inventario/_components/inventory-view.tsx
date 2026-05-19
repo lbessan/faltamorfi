@@ -4,16 +4,14 @@ import { useCallback, useMemo, useState, useTransition } from "react";
 import { Loader2, Plus, ScanLine, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DEPARTMENT_ICONS,
   DEPARTMENT_LABELS,
   DEPARTMENT_ORDER,
   isDepartment,
   type Department,
-  type Location,
 } from "@/lib/database.types";
-import type { ProductWithLocation } from "@/lib/db/products";
+import type { ProductWithLots } from "@/lib/db/products";
 import type { ConsumptionRate } from "@/lib/db/predictions";
 import { lookupBarcode } from "@/lib/openfoodfacts";
 import { BarcodeScannerSheet } from "@/components/barcode-scanner";
@@ -24,14 +22,10 @@ import { AddProductSheet } from "./add-product-sheet";
 import { ProductDetailSheet } from "./product-detail-sheet";
 import type { LotPrefill } from "./lot-form";
 
-const ALL_LOCATIONS_VALUE = "__all__";
-const NO_LOCATION_VALUE = "__none__";
-
 type Props = {
   householdId: string;
   householdName: string;
-  locations: Location[];
-  products: ProductWithLocation[];
+  products: ProductWithLots[];
   warningDays: number;
   canEdit: boolean;
   /** Tasas de consumo por producto (record para passing server→client). */
@@ -41,7 +35,6 @@ type Props = {
 export function InventoryView({
   householdId,
   householdName,
-  locations,
   products,
   warningDays,
   canEdit,
@@ -59,15 +52,12 @@ export function InventoryView({
   });
 
   const [query, setQuery] = useState("");
-  const [locationFilter, setLocationFilter] = useState<string>(
-    ALL_LOCATIONS_VALUE,
-  );
   const [addOpen, setAddOpen] = useState(false);
   const [addPrefill, setAddPrefill] = useState<LotPrefill | null>(null);
   const [addSuggestedMatch, setAddSuggestedMatch] =
-    useState<ProductWithLocation | null>(null);
+    useState<ProductWithLots | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [selected, setSelected] = useState<ProductWithLocation | null>(null);
+  const [selected, setSelected] = useState<ProductWithLots | null>(null);
   const [lookupPending, startLookup] = useTransition();
   const [lookupError, setLookupError] = useState<string | null>(null);
 
@@ -77,15 +67,6 @@ export function InventoryView({
     return products.filter((p) => {
       if (!p.is_active) return false;
       if (Number(p.quantity) <= 0) return false;
-      if (
-        locationFilter !== ALL_LOCATIONS_VALUE &&
-        ((locationFilter === NO_LOCATION_VALUE &&
-          p.default_location_id !== null) ||
-          (locationFilter !== NO_LOCATION_VALUE &&
-            p.default_location_id !== locationFilter))
-      ) {
-        return false;
-      }
       if (!q) return true;
       return (
         p.name.toLowerCase().includes(q) ||
@@ -95,7 +76,7 @@ export function InventoryView({
         )
       );
     });
-  }, [products, query, locationFilter]);
+  }, [products, query]);
 
   // Agrupar por departamento, respetando el orden canónico.
   const grouped = useMemo(() => groupByDepartment(filtered), [filtered]);
@@ -136,7 +117,7 @@ export function InventoryView({
 
       startLookup(async () => {
         let prefill: LotPrefill = { barcode };
-        let suggested: ProductWithLocation | null = null;
+        let suggested: ProductWithLots | null = null;
         try {
           const off = await lookupBarcode(barcode);
           if (off) {
@@ -232,18 +213,6 @@ export function InventoryView({
         />
       </div>
 
-      <Tabs value={locationFilter} onValueChange={setLocationFilter}>
-        <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value={ALL_LOCATIONS_VALUE}>Todos</TabsTrigger>
-          {locations.map((loc) => (
-            <TabsTrigger key={loc.id} value={loc.id}>
-              {loc.name}
-            </TabsTrigger>
-          ))}
-          <TabsTrigger value={NO_LOCATION_VALUE}>Sin ubicación</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
       {lookupError && (
         <p
           role="alert"
@@ -298,7 +267,7 @@ export function InventoryView({
         <Button
           type="button"
           size="lg"
-          className="fixed bottom-24 right-4 size-16 rounded-full bg-brand-gradient text-white shadow-brand-lg z-10 hover:scale-105 active:scale-95 transition-transform ring-2 ring-background"
+          className="fixed bottom-24 right-4 md:bottom-8 md:right-8 size-16 rounded-full bg-primary text-primary-foreground shadow-brand-lg z-10 hover:scale-105 active:scale-95 transition-transform ring-2 ring-background"
           onClick={openAddManual}
           aria-label="Agregar producto"
         >
@@ -315,7 +284,6 @@ export function InventoryView({
             setAddSuggestedMatch(null);
           }
         }}
-        locations={locations}
         prefill={addPrefill}
         suggestedMatch={addSuggestedMatch}
         onScanClick={openScanner}
@@ -323,7 +291,6 @@ export function InventoryView({
 
       <ProductDetailSheet
         product={selected}
-        locations={locations}
         warningDays={warningDays}
         canEdit={canEdit}
         rate={selected ? ratesByProduct[selected.id] : undefined}
@@ -342,9 +309,9 @@ export function InventoryView({
 // ----------------------------------------------------------------------------
 
 function groupByDepartment(
-  products: ProductWithLocation[],
-): Array<{ department: Department; items: ProductWithLocation[] }> {
-  const map = new Map<Department, ProductWithLocation[]>();
+  products: ProductWithLots[],
+): Array<{ department: Department; items: ProductWithLots[] }> {
+  const map = new Map<Department, ProductWithLots[]>();
   for (const p of products) {
     const d: Department = isDepartment(p.department) ? p.department : "other";
     const arr = map.get(d) ?? [];
@@ -359,12 +326,12 @@ function groupByDepartment(
 
 function findClosestProductMatch(
   offName: string,
-  products: ProductWithLocation[],
-): ProductWithLocation | null {
+  products: ProductWithLots[],
+): ProductWithLots | null {
   const offTokens = tokenize(offName);
   if (offTokens.length === 0) return null;
 
-  let best: { product: ProductWithLocation; score: number } | null = null;
+  let best: { product: ProductWithLots; score: number } | null = null;
   for (const p of products) {
     if (!p.is_active) continue;
     const pTokens = tokenize(p.name);
@@ -403,11 +370,8 @@ function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-16 px-4 text-center">
-      <div className="relative">
-        <div className="size-24 rounded-full bg-brand-gradient flex items-center justify-center shadow-brand-lg">
-          <ScanLine className="size-12 text-white" strokeWidth={2} />
-        </div>
-        <span aria-hidden className="absolute -top-1 -right-1 size-5 rounded-full bg-brand-sun ring-2 ring-background" />
+      <div className="size-24 rounded-full bg-primary/10 text-primary flex items-center justify-center ring-1 ring-primary/20">
+        <ScanLine className="size-12" strokeWidth={1.8} />
       </div>
       <div className="space-y-1 max-w-xs">
         <h2 className="font-heading text-xl font-bold tracking-tight">

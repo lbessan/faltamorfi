@@ -25,9 +25,8 @@ import {
   DEPARTMENT_ORDER,
   isDepartment,
   type Department,
-  type Location,
 } from "@/lib/database.types";
-import type { ProductWithLocation } from "@/lib/db/products";
+import type { ProductWithLots } from "@/lib/db/products";
 import {
   formatDaysLeft,
   predictDaysLeft,
@@ -38,11 +37,10 @@ import { LotForm } from "@/app/(app)/inventario/_components/lot-form";
 import { addProductToListAction } from "../actions";
 
 type Props = {
-  restock: ProductWithLocation[];
-  lowStock: ProductWithLocation[];
-  runningOut: ProductWithLocation[];
+  restock: ProductWithLots[];
+  lowStock: ProductWithLots[];
+  runningOut: ProductWithLots[];
   productsInList: Set<string>;
-  locations: Location[];
   canEdit: boolean;
   ratesByProduct: Record<string, ConsumptionRate>;
 };
@@ -52,12 +50,11 @@ export function RestockView({
   lowStock,
   runningOut,
   productsInList,
-  locations,
   canEdit,
   ratesByProduct,
 }: Props) {
   const router = useRouter();
-  const [active, setActive] = useState<ProductWithLocation | null>(null);
+  const [active, setActive] = useState<ProductWithLots | null>(null);
   const [, startTransition] = useTransition();
   const [pendingProduct, setPendingProduct] = useState<string | null>(null);
 
@@ -71,7 +68,7 @@ export function RestockView({
   const total = restock.length + lowStock.length + runningOut.length;
 
   function addToList(
-    product: ProductWithLocation,
+    product: ProductWithLots,
     source: "restock" | "low_stock" | "manual",
   ) {
     setPendingProduct(product.id);
@@ -181,8 +178,6 @@ export function RestockView({
                   productId={active.id}
                   productName={active.name}
                   productCategory={active.category}
-                  locations={locations}
-                  defaultLocationId={active.default_location_id}
                   onClose={() => setActive(null)}
                 />
               </div>
@@ -210,14 +205,14 @@ function DepartmentBlock({
   onAddToList,
 }: {
   department: Department;
-  items: ProductWithLocation[];
+  items: ProductWithLots[];
   variant: Variant;
   productsInList: Set<string>;
   pendingProduct: string | null;
   canEdit: boolean;
   ratesByProduct: Record<string, ConsumptionRate>;
-  onPickLot: (p: ProductWithLocation) => void;
-  onAddToList: (p: ProductWithLocation) => void;
+  onPickLot: (p: ProductWithLots) => void;
+  onAddToList: (p: ProductWithLots) => void;
 }) {
   return (
     <section className="space-y-2">
@@ -264,7 +259,7 @@ function RestockRow({
   onPickLot,
   onAddToList,
 }: {
-  product: ProductWithLocation;
+  product: ProductWithLots;
   variant: Variant;
   inList: boolean;
   pending: boolean;
@@ -363,11 +358,8 @@ function RestockRow({
 function CelebrateEmpty() {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-16 px-4 text-center">
-      <div className="relative">
-        <div className="size-24 rounded-full bg-brand-gradient flex items-center justify-center shadow-brand-lg">
-          <ListChecks className="size-12 text-white" strokeWidth={2} />
-        </div>
-        <span aria-hidden className="absolute -top-1 -right-1 size-5 rounded-full bg-brand-sun ring-2 ring-background" />
+      <div className="size-24 rounded-full bg-primary/10 text-primary flex items-center justify-center ring-1 ring-primary/20">
+        <ListChecks className="size-12" strokeWidth={1.8} />
       </div>
       <div className="space-y-1 max-w-xs">
         <h2 className="font-heading text-xl font-bold tracking-tight">
@@ -383,9 +375,9 @@ function CelebrateEmpty() {
 }
 
 function groupByDepartment(
-  products: ProductWithLocation[],
-): Array<{ department: Department; items: ProductWithLocation[] }> {
-  const map = new Map<Department, ProductWithLocation[]>();
+  products: ProductWithLots[],
+): Array<{ department: Department; items: ProductWithLots[] }> {
+  const map = new Map<Department, ProductWithLots[]>();
   for (const p of products) {
     const d: Department = isDepartment(p.department) ? p.department : "other";
     const arr = map.get(d) ?? [];

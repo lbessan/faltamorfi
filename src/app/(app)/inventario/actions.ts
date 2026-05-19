@@ -78,7 +78,6 @@ export async function addProductAction(
       category: asNullableString(formData.get("category")),
       unit: normalizeUnit(asString(formData.get("unit")) || "un"),
       low_stock_threshold: asNumber(formData.get("low_stock_threshold"), 1),
-      default_location_id: asNullableString(formData.get("default_location_id")),
       notes: asNullableString(formData.get("notes")),
     });
 
@@ -107,7 +106,6 @@ export async function updateProductAction(
       category: asNullableString(formData.get("category")),
       unit: normalizeUnit(asString(formData.get("unit")) || "un"),
       low_stock_threshold: asNumber(formData.get("low_stock_threshold"), 1),
-      default_location_id: asNullableString(formData.get("default_location_id")),
       notes: asNullableString(formData.get("notes")),
     });
 
@@ -150,14 +148,12 @@ export type CreateProductWithLotInput = {
     category: string | null;
     unit: Unit;
     low_stock_threshold: number;
-    default_location_id: string | null;
     notes: string | null;
     department?: Department | null;
     icon?: string | null;
   };
   lot: {
     quantity: number;
-    location_id: string | null;
     expires_on: string | null;
     frozen_at: string | null;
     frozen_max_days: number | null;
@@ -205,7 +201,6 @@ export async function createProductWithLotAction(
       category: input.product.category,
       unit: normalizeUnit(input.product.unit),
       low_stock_threshold: input.product.low_stock_threshold,
-      default_location_id: input.product.default_location_id,
       notes: input.product.notes,
       department,
       icon: icon ?? DEPARTMENT_ICONS[department],
@@ -214,8 +209,6 @@ export async function createProductWithLotAction(
     await insertStockItem(supabase, {
       product_id: product.id,
       quantity: input.lot.quantity,
-      location_id:
-        input.lot.location_id ?? input.product.default_location_id ?? null,
       expires_on: input.lot.expires_on,
       frozen_at: input.lot.frozen_at,
       frozen_max_days: input.lot.frozen_max_days,
@@ -261,7 +254,6 @@ export async function consumeProductAction(
 export type LotInput = {
   product_id: string;
   quantity: number;
-  location_id?: string | null;
   expires_on?: string | null;
   frozen_at?: string | null;
   frozen_max_days?: number | null;
@@ -286,7 +278,6 @@ export async function addLotAction(input: LotInput): Promise<ActionState> {
     await insertStockItem(supabase, {
       product_id: input.product_id,
       quantity: input.quantity,
-      location_id: input.location_id ?? null,
       expires_on: input.expires_on ?? null,
       frozen_at: input.frozen_at ?? null,
       frozen_max_days: input.frozen_max_days ?? null,
@@ -313,7 +304,6 @@ export async function updateLotAction(
     const supabase = await createClient();
     await updateStockItem(supabase, lotId, {
       quantity: patch.quantity,
-      location_id: patch.location_id,
       expires_on: patch.expires_on,
       frozen_at: patch.frozen_at,
       frozen_max_days: patch.frozen_max_days,

@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { CalendarClock, Hourglass, MapPin } from "lucide-react";
+import { CalendarClock, DoorOpen, Hourglass, Snowflake } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UNIT_LABELS, type Unit } from "@/lib/database.types";
-import type { LotSummary, ProductWithLocation } from "@/lib/db/products";
+import type { LotSummary, ProductWithLots } from "@/lib/db/products";
 import {
   formatDaysLeft,
   predictDaysLeft,
@@ -14,7 +14,7 @@ import { effectiveExpiry } from "@/lib/expiry";
 import { DynamicIcon } from "@/lib/icon-map";
 
 type Props = {
-  product: ProductWithLocation;
+  product: ProductWithLots;
   warningDays: number;
   rate?: ConsumptionRate;
   onClick: () => void;
@@ -29,6 +29,8 @@ export function ProductCard({ product, warningDays, rate, onClick }: Props) {
   const brandSummary = summarizeBrands(product.lots);
   const thumbUrl = pickThumbUrl(product.lots);
   const nextExp = nextExpirationInfo(product.lots, warningDays);
+  const hasFrozenLot = product.lots.some((l) => l.frozen_at);
+  const hasOpenedLot = product.lots.some((l) => l.opened_at);
   const prediction = predictDaysLeft(rate, qty);
   const showPrediction =
     prediction.daysLeft !== null &&
@@ -67,10 +69,20 @@ export function ProductCard({ product, warningDays, rate, onClick }: Props) {
         </div>
         <div className="text-xs text-muted-foreground flex items-center gap-x-2 gap-y-0.5 mt-0.5 truncate">
           {brandSummary && <span className="truncate">{brandSummary}</span>}
-          {product.location && (
-            <span className="inline-flex items-center gap-1 shrink-0">
-              <MapPin className="size-3" />
-              {product.location.name}
+          {hasFrozenLot && (
+            <span
+              className="inline-flex items-center gap-1 shrink-0 text-primary"
+              title="Hay lotes en el freezer"
+            >
+              <Snowflake className="size-3" />
+            </span>
+          )}
+          {hasOpenedLot && (
+            <span
+              className="inline-flex items-center gap-1 shrink-0 text-primary"
+              title="Hay lotes abiertos en la heladera"
+            >
+              <DoorOpen className="size-3" />
             </span>
           )}
         </div>

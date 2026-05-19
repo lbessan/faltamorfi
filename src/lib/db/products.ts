@@ -19,21 +19,19 @@ export type LotSummary = {
   image_url: string | null;
 };
 
-export type ProductWithLocation = Product & {
-  location: { id: string; name: string; icon: string | null } | null;
+export type ProductWithLots = Product & {
   lots: LotSummary[];
 };
 
 const PRODUCT_SELECT = `
   *,
-  location:locations!products_default_location_id_fkey(id, name, icon),
   lots:stock_items(id, quantity, expires_on, frozen_at, frozen_max_days, opened_at, opened_max_days, brand, barcode, image_url)
 `;
 
 export async function listProducts(
   supabase: SupabaseClient<Database>,
   householdId: string,
-): Promise<ProductWithLocation[]> {
+): Promise<ProductWithLots[]> {
   const { data, error } = await supabase
     .from("products")
     .select(PRODUCT_SELECT)
@@ -41,13 +39,13 @@ export async function listProducts(
     .order("name", { ascending: true });
 
   if (error) throw error;
-  return (data ?? []) as ProductWithLocation[];
+  return (data ?? []) as ProductWithLots[];
 }
 
 export async function getProduct(
   supabase: SupabaseClient<Database>,
   productId: string,
-): Promise<ProductWithLocation | null> {
+): Promise<ProductWithLots | null> {
   const { data, error } = await supabase
     .from("products")
     .select(PRODUCT_SELECT)
@@ -55,7 +53,7 @@ export async function getProduct(
     .maybeSingle();
 
   if (error) throw error;
-  return (data as ProductWithLocation | null) ?? null;
+  return (data as ProductWithLots | null) ?? null;
 }
 
 export async function insertProduct(
@@ -105,7 +103,7 @@ export async function findProductByBarcode(
   supabase: SupabaseClient<Database>,
   householdId: string,
   barcode: string,
-): Promise<ProductWithLocation | null> {
+): Promise<ProductWithLots | null> {
   const { data: items, error } = await supabase
     .from("stock_items")
     .select("product_id, products!inner(household_id)")

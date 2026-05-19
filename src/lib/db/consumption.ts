@@ -40,29 +40,3 @@ export async function consumeProduct(
   if (logError) throw logError;
 }
 
-/**
- * Suma stock al producto creando un lote nuevo con la cantidad indicada.
- * Útil para "devolución" / ajustes positivos cuando ya no querés usar el
- * flujo principal de "agregar lote".
- */
-export async function addStockAsLot(
-  supabase: SupabaseClient<Database>,
-  params: {
-    productId: string;
-    quantity: number;
-    locationId: string | null;
-    expiresOn?: string | null;
-  },
-): Promise<void> {
-  const { productId, quantity, locationId, expiresOn } = params;
-  if (!Number.isFinite(quantity) || quantity <= 0) return;
-
-  const { error } = await supabase.from("stock_items").insert({
-    product_id: productId,
-    location_id: locationId,
-    quantity,
-    expires_on: expiresOn ?? null,
-  });
-
-  if (error) throw error;
-}

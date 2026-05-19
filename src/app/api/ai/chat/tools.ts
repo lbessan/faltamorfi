@@ -17,7 +17,7 @@ import {
   isDepartment,
   type Department,
 } from "@/lib/database.types";
-import { listProducts, type ProductWithLocation } from "@/lib/db/products";
+import { listProducts, type ProductWithLots } from "@/lib/db/products";
 import {
   addOrIncrementForProduct,
   listShoppingItems,
@@ -93,9 +93,10 @@ const listInventory: ToolHandler = async (input, ctx) => {
           name: p.name,
           quantity: Number(p.quantity),
           unit: p.unit,
-          location: p.location?.name ?? null,
           brands: brandsFor(p),
           next_expiry: nextExpiryFor(p),
+          has_frozen: p.lots.some((l) => l.frozen_at),
+          has_opened: p.lots.some((l) => l.opened_at),
         })),
       })),
     },
@@ -144,8 +145,9 @@ const listExpiringSoon: ToolHandler = async (input, ctx) => {
     brand: string | null;
     expires_on: string;
     days_left: number;
-    location: string | null;
     department: string | null;
+    /** Estado del lote según los flags: 'frozen' | 'opened' | null (en envase original). */
+    state: "frozen" | "opened" | null;
   };
   const rows: Row[] = [];
 
@@ -164,8 +166,8 @@ const listExpiringSoon: ToolHandler = async (input, ctx) => {
         brand: lot.brand,
         expires_on: eff.toISOString().slice(0, 10),
         days_left: daysLeft,
-        location: p.location?.name ?? null,
         department: p.department,
+        state: lot.frozen_at ? "frozen" : lot.opened_at ? "opened" : null,
       });
     }
   }
@@ -408,7 +410,7 @@ export async function executeTool(
 // Helpers
 // ----------------------------------------------------------------------------
 
-function basic(p: ProductWithLocation) {
+function basic(p: ProductWithLots) {
   return {
     name: p.name,
     department: p.department,
@@ -418,9 +420,9 @@ function basic(p: ProductWithLocation) {
 }
 
 function groupByDepartment(
-  products: ProductWithLocation[],
-): Record<string, ProductWithLocation[]> {
-  const map: Record<string, ProductWithLocation[]> = {};
+  products: ProductWithLots[],
+): Record<string, ProductWithLots[]> {
+  const map: Record<string, ProductWithLots[]> = {};
   for (const p of products) {
     const d = isDepartment(p.department) ? p.department : "other";
     if (!map[d]) map[d] = [];
@@ -429,7 +431,7 @@ function groupByDepartment(
   return map;
 }
 
-function brandsFor(p: ProductWithLocation): string[] {
+function brandsFor(p: ProductWithLots): string[] {
   const set = new Set<string>();
   for (const l of p.lots) {
     if (l.brand) set.add(l.brand);
@@ -437,7 +439,7 @@ function brandsFor(p: ProductWithLocation): string[] {
   return [...set];
 }
 
-function nextExpiryFor(p: ProductWithLocation): string | null {
+function nextExpiryFor(p: ProductWithLots): string | null {
   let earliest: Date | null = null;
   for (const lot of p.lots) {
     const eff = effectiveExpiry(lot);

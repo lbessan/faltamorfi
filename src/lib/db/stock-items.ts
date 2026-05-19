@@ -6,23 +6,26 @@ import type {
   UpdateTable,
 } from "@/lib/database.types";
 
-export type StockItemWithLocation = StockItem & {
-  location: { id: string; name: string; kind: string } | null;
-};
+/**
+ * Lote tal cual viene de la DB. Ya no joineamos con ubicaciones — la "ubicación"
+ * relevante se infiere de los flags `frozen_at` (freezer) y `opened_at` (abierto
+ * en heladera). Si ambos son null, asumimos almacenado en seco/alacena/etc.
+ */
+export type Lot = StockItem;
 
 export async function listStockItems(
   supabase: SupabaseClient<Database>,
   productId: string,
-): Promise<StockItemWithLocation[]> {
+): Promise<Lot[]> {
   const { data, error } = await supabase
     .from("stock_items")
-    .select("*, location:locations(id, name, kind)")
+    .select("*")
     .eq("product_id", productId)
     .order("expires_on", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
 
   if (error) throw error;
-  return (data ?? []) as StockItemWithLocation[];
+  return (data ?? []) as Lot[];
 }
 
 export async function insertStockItem(

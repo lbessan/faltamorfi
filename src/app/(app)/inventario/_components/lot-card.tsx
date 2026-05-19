@@ -7,7 +7,6 @@ import {
   CalendarClock,
   DoorOpen,
   Loader2,
-  MapPin,
   Pencil,
   Snowflake,
   Trash2,
@@ -15,12 +14,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UNIT_LABELS, type Unit } from "@/lib/database.types";
-import type { StockItemWithLocation } from "@/lib/db/stock-items";
+import type { Lot } from "@/lib/db/stock-items";
 import { effectiveExpiry as computeEffectiveExpiry } from "@/lib/expiry";
 import { deleteLotAction } from "../actions";
 
 type Props = {
-  lot: StockItemWithLocation;
+  lot: Lot;
   unit: string;
   warningDays: number;
   /** Si es null, el lote es read-only (no se muestran botones de editar/eliminar). */
@@ -89,12 +88,6 @@ export function LotCard({ lot, unit, warningDays, onEdit }: Props) {
           )}
 
           <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
-            {lot.location && (
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="size-3" />
-                {lot.location.name}
-              </span>
-            )}
             {effectiveExpiration && (
               <span className="inline-flex items-center gap-1">
                 <CalendarClock className="size-3" />
@@ -184,7 +177,7 @@ type ExpirationStatus =
   | { kind: "soon"; days: number }
   | { kind: "ok"; days: number };
 
-function effectiveExpiry(lot: StockItemWithLocation): Date | null {
+function effectiveExpiry(lot: Lot): Date | null {
   return computeEffectiveExpiry(lot);
 }
 

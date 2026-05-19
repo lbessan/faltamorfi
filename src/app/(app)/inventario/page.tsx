@@ -4,7 +4,6 @@ import {
   getCurrentHouseholdRole,
   requireCurrentHousehold,
 } from "@/lib/db/household";
-import { listLocations } from "@/lib/db/locations";
 import { listProducts } from "@/lib/db/products";
 import { getOrCreateUserPreferences } from "@/lib/db/preferences";
 import { fetchConsumptionRates } from "@/lib/db/predictions";
@@ -23,8 +22,7 @@ export default async function InventoryPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [locations, products, prefs, role, rates] = await Promise.all([
-    listLocations(supabase, household.id),
+  const [products, prefs, role, rates] = await Promise.all([
     listProducts(supabase, household.id),
     user ? getOrCreateUserPreferences(supabase, user.id) : Promise.resolve(null),
     getCurrentHouseholdRole(supabase, household.id),
@@ -38,7 +36,6 @@ export default async function InventoryPage() {
     <InventoryView
       householdId={household.id}
       householdName={household.name}
-      locations={locations}
       products={products}
       warningDays={prefs?.default_expiry_warning_days ?? 3}
       canEdit={canEdit(role)}

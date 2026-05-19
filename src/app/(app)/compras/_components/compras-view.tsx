@@ -5,8 +5,7 @@ import Link from "next/link";
 import { ListChecks, ReceiptText, ShoppingBasket } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import type { Location } from "@/lib/database.types";
-import type { ProductWithLocation } from "@/lib/db/products";
+import type { ProductWithLots } from "@/lib/db/products";
 import type { ConsumptionRate } from "@/lib/db/predictions";
 import type { ShoppingListItemWithProduct } from "@/lib/db/shopping";
 import { useRealtimeRefresh } from "@/lib/realtime/use-realtime-refresh";
@@ -15,12 +14,11 @@ import { ShoppingListView } from "./shopping-list-view";
 
 type Props = {
   householdId: string;
-  restock: ProductWithLocation[];
-  lowStock: ProductWithLocation[];
-  runningOut: ProductWithLocation[];
+  restock: ProductWithLots[];
+  lowStock: ProductWithLots[];
+  runningOut: ProductWithLots[];
   productsInList: Set<string>;
   shoppingItems: ShoppingListItemWithProduct[];
-  locations: Location[];
   canEdit: boolean;
   ratesByProduct: Record<string, ConsumptionRate>;
 };
@@ -32,7 +30,6 @@ export function ComprasView({
   runningOut,
   productsInList,
   shoppingItems,
-  locations,
   canEdit,
   ratesByProduct,
 }: Props) {
@@ -110,18 +107,13 @@ export function ComprasView({
             lowStock={lowStock}
             runningOut={runningOut}
             productsInList={productsInList}
-            locations={locations}
             canEdit={canEdit}
             ratesByProduct={ratesByProduct}
           />
         </TabsContent>
 
         <TabsContent value="list" className="mt-4">
-          <ShoppingListView
-            items={shoppingItems}
-            locations={locations}
-            canEdit={canEdit}
-          />
+          <ShoppingListView items={shoppingItems} canEdit={canEdit} />
         </TabsContent>
       </Tabs>
 

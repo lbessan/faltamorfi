@@ -22,47 +22,39 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
-  UNITS,
-  UNIT_LABELS,
-  type Location,
-  type Unit,
-} from "@/lib/database.types";
-import type { ProductWithLocation } from "@/lib/db/products";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
+import { UNITS, UNIT_LABELS, type Unit } from "@/lib/database.types";
+import type { ProductWithLots } from "@/lib/db/products";
 import {
   addLotAction,
   createProductWithLotAction,
   type LotInput,
 } from "../actions";
-import { EMPTY_VALUE_SENTINEL } from "../constants";
 import type { LotPrefill } from "./lot-form";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  locations: Location[];
   /** Datos prellenados (típicamente desde Open Food Facts via escaneo). */
   prefill?: LotPrefill | null;
   /** Si hay un producto existente que matchea por nombre/categoría, lo sugerimos. */
-  suggestedMatch?: ProductWithLocation | null;
+  suggestedMatch?: ProductWithLots | null;
   /** Si está definido, mostramos botón "Escanear código de barras". */
   onScanClick?: () => void;
 };
 
 type Mode =
   | { kind: "create" } // crear tipo nuevo + primer lote
-  | { kind: "addToExisting"; product: ProductWithLocation }; // sumar lote a un tipo existente
+  | { kind: "addToExisting"; product: ProductWithLots }; // sumar lote a un tipo existente
 
 export function AddProductSheet({
   open,
   onOpenChange,
-  locations,
   prefill,
   suggestedMatch,
   onScanClick,
@@ -83,22 +75,22 @@ export function AddProductSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent>
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>
             {mode.kind === "addToExisting"
               ? `Sumar lote a ${mode.product.name}`
               : prefill?.barcode
                 ? "Producto escaneado"
                 : "Cargar producto"}
-          </SheetTitle>
-          <SheetDescription>
+          </ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             {mode.kind === "addToExisting"
               ? "Estás agregando otro lote del mismo tipo."
               : "Definí el tipo y cargá el primer lote en una sola pantalla."}
-          </SheetDescription>
-        </SheetHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <div className="px-4 pb-6 space-y-3">
           {/* Sugerencia de tipo existente */}
@@ -152,21 +144,19 @@ export function AddProductSheet({
 
           {mode.kind === "create" ? (
             <CreateForm
-              locations={locations}
               prefill={prefill}
               onSuccess={() => onOpenChange(false)}
             />
           ) : (
             <AddLotToExistingForm
               product={mode.product}
-              locations={locations}
               prefill={prefill}
               onSuccess={() => onOpenChange(false)}
             />
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }
 
@@ -177,7 +167,7 @@ function MatchSwitcher({
   mode,
   onChoose,
 }: {
-  match: ProductWithLocation;
+  match: ProductWithLots;
   mode: Mode;
   onChoose: (mode: Mode) => void;
 }) {
@@ -218,11 +208,9 @@ function MatchSwitcher({
 // ----------------------------------------------------------------------------
 
 function CreateForm({
-  locations,
   prefill,
   onSuccess,
 }: {
-  locations: Location[];
   prefill?: LotPrefill | null;
   onSuccess: () => void;
 }) {
@@ -235,9 +223,6 @@ function CreateForm({
   const [category, setCategory] = useState("");
   const [unit, setUnit] = useState<Unit>("un");
   const [threshold, setThreshold] = useState("1");
-  const [defaultLocationId, setDefaultLocationId] = useState<string>(
-    locations[0]?.id ?? EMPTY_VALUE_SENTINEL,
-  );
 
   // Primer lote
   const [quantity, setQuantity] = useState("1");
@@ -259,9 +244,6 @@ function CreateForm({
       return;
     }
 
-    const lotLocation =
-      defaultLocationId === EMPTY_VALUE_SENTINEL ? null : defaultLocationId;
-
     startTransition(async () => {
       const result = await createProductWithLotAction({
         product: {
@@ -269,12 +251,10 @@ function CreateForm({
           category: category.trim() || null,
           unit,
           low_stock_threshold: Number(threshold.replace(",", ".")) || 1,
-          default_location_id: lotLocation,
           notes: null,
         },
         lot: {
           quantity: qty,
-          location_id: lotLocation,
           expires_on: expiresOn || null,
           frozen_at: null,
           frozen_max_days: null,
@@ -366,26 +346,6 @@ function CreateForm({
             />
           </div>
         </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="ap-default-loc">Ubicación habitual</Label>
-          <Select
-            value={defaultLocationId}
-            onValueChange={(v) => setDefaultLocationId(v ?? EMPTY_VALUE_SENTINEL)}
-          >
-            <SelectTrigger id="ap-default-loc" className="w-full">
-              <SelectValue placeholder="Ubicación" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={EMPTY_VALUE_SENTINEL}>Sin asignar</SelectItem>
-              {locations.map((loc) => (
-                <SelectItem key={loc.id} value={loc.id}>
-                  {loc.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
       </fieldset>
 
       {/* Primer lote */}
@@ -441,6 +401,11 @@ function CreateForm({
             />
           </div>
         </div>
+
+        <p className="text-[11px] text-muted-foreground">
+          Si después lo guardás en el freezer o lo abrís en la heladera,
+          marcalo desde el detalle del lote.
+        </p>
       </fieldset>
 
       {error && (
@@ -471,12 +436,10 @@ function CreateForm({
 
 function AddLotToExistingForm({
   product,
-  locations,
   prefill,
   onSuccess,
 }: {
-  product: ProductWithLocation;
-  locations: Location[];
+  product: ProductWithLots;
   prefill?: LotPrefill | null;
   onSuccess: () => void;
 }) {
@@ -488,9 +451,6 @@ function AddLotToExistingForm({
   const [expiresOn, setExpiresOn] = useState<string>(prefill?.expires_on ?? "");
   const [brand, setBrand] = useState<string>(prefill?.brand ?? "");
   const [barcode, setBarcode] = useState<string>(prefill?.barcode ?? "");
-  const [locationId, setLocationId] = useState<string>(
-    product.default_location_id ?? EMPTY_VALUE_SENTINEL,
-  );
 
   function handleSubmit() {
     setError(null);
@@ -503,8 +463,6 @@ function AddLotToExistingForm({
     const payload: LotInput = {
       product_id: product.id,
       quantity: qty,
-      location_id:
-        locationId === EMPTY_VALUE_SENTINEL ? null : locationId,
       expires_on: expiresOn || null,
       brand: brand.trim() || null,
       barcode: barcode.trim() || null,
@@ -546,26 +504,6 @@ function AddLotToExistingForm({
             onChange={(e) => setExpiresOn(e.target.value)}
           />
         </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="ae-loc">Ubicación</Label>
-        <Select
-          value={locationId}
-          onValueChange={(v) => setLocationId(v ?? EMPTY_VALUE_SENTINEL)}
-        >
-          <SelectTrigger id="ae-loc" className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={EMPTY_VALUE_SENTINEL}>Sin asignar</SelectItem>
-            {locations.map((loc) => (
-              <SelectItem key={loc.id} value={loc.id}>
-                {loc.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-2">

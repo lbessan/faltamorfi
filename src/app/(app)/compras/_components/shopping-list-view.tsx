@@ -32,7 +32,6 @@ import {
   UNIT_LABELS,
   isDepartment,
   type Department,
-  type Location,
   type Unit,
 } from "@/lib/database.types";
 import type { ShoppingListItemWithProduct } from "@/lib/db/shopping";
@@ -46,7 +45,6 @@ import {
 
 type Props = {
   items: ShoppingListItemWithProduct[];
-  locations: Location[];
   canEdit: boolean;
 };
 

@@ -54,6 +54,8 @@ type Props = {
   warningDays: number;
   canEdit: boolean;
   rate?: ConsumptionRate;
+  /** Si es true, al abrirse muestra directo el form de nuevo lote. */
+  initialShowAddLot?: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
@@ -64,6 +66,7 @@ export function ProductDetailSheet({
   warningDays,
   canEdit,
   rate,
+  initialShowAddLot = false,
   onOpenChange,
 }: Props) {
   const [mode, setMode] = useState<Mode>("view");
@@ -86,6 +89,7 @@ export function ProductDetailSheet({
             warningDays={warningDays}
             canEdit={canEdit}
             rate={rate}
+            initialShowAddLot={initialShowAddLot}
             onEditProduct={() => setMode("editProduct")}
             onClose={() => handleOpenChange(false)}
           />
@@ -121,6 +125,7 @@ function ViewMode({
   warningDays,
   canEdit,
   rate,
+  initialShowAddLot,
   onEditProduct,
   onClose,
 }: {
@@ -128,6 +133,7 @@ function ViewMode({
   warningDays: number;
   canEdit: boolean;
   rate?: ConsumptionRate;
+  initialShowAddLot: boolean;
   onEditProduct: () => void;
   onClose: () => void;
 }) {
@@ -136,7 +142,7 @@ function ViewMode({
 
   const [lots, setLots] = useState<Lot[] | null>(null);
   const [lotsError, setLotsError] = useState<string | null>(null);
-  const [showAddLot, setShowAddLot] = useState(false);
+  const [showAddLot, setShowAddLot] = useState(initialShowAddLot);
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [lotPrefill, setLotPrefill] = useState<LotPrefill | null>(null);
@@ -150,7 +156,7 @@ function ViewMode({
     setPreviousKey(productKey);
     setLots(null);
     setLotsError(null);
-    setShowAddLot(false);
+    setShowAddLot(initialShowAddLot);
     setEditingLotId(null);
     setLotPrefill(null);
     setScannerOpen(false);

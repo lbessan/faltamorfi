@@ -327,3 +327,55 @@ export async function deleteLotAction(lotId: string): Promise<void> {
   await deleteStockItem(supabase, lotId);
   revalidatePath(INVENTORY_PATH);
 }
+
+/**
+ * Descuenta `amount` de un lote específico (no FIFO). Si la cantidad llega a 0
+ * eliminamos el lote. Registramos el consumo en el log para no romper
+ * predicciones.
+ */
+export async function consumeLotAction(
+  lotId: string,
+  amount: number,
+): Promise<ActionState> {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { status: "error", message: "Cantidad inválida." };
+  }
+  try {
+    const supabase = await createClient();
+    const { data: lot, error: readError } = await supabase
+      .from("stock_items")
+      .select("id, product_id, quantity")
+      .eq("id", lotId)
+      .single();
+    if (readError) throw readError;
+    if (!lot) return { status: "error", message: "Lote no encontrado." };
+
+    const current = Number(lot.quantity);
+    const actualConsumed = Math.min(current, amount);
+    if (actualConsumed <= 0) {
+      return { status: "error", message: "El lote ya está vacío." };
+    }
+    const next = current - actualConsumed;
+
+    if (next <= 0) {
+      await deleteStockItem(supabase, lotId);
+    } else {
+      await updateStockItem(supabase, lotId, { quantity: next });
+    }
+
+    // Loguear consumo para mantener predicciones.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    await supabase.from("consumption_log").insert({
+      product_id: lot.product_id,
+      quantity: actualConsumed,
+      user_id: user?.id ?? null,
+    });
+
+    revalidatePath(INVENTORY_PATH);
+    return { status: "success" };
+  } catch (err) {
+    return { status: "error", message: describeError(err) };
+  }
+}

@@ -58,6 +58,8 @@ export function InventoryView({
     useState<ProductWithLots | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [selected, setSelected] = useState<ProductWithLots | null>(null);
+  /** Si abrimos el detail con intención de agregar un lote, lo marcamos. */
+  const [selectedAddLot, setSelectedAddLot] = useState(false);
   const [lookupPending, startLookup] = useTransition();
   const [lookupError, setLookupError] = useState<string | null>(null);
 
@@ -252,8 +254,16 @@ export function InventoryView({
                     <ProductCard
                       product={p}
                       warningDays={warningDays}
+                      canEdit={canEdit}
                       rate={ratesByProduct[p.id]}
-                      onClick={() => setSelected(p)}
+                      onOpenDetail={() => {
+                        setSelectedAddLot(false);
+                        setSelected(p);
+                      }}
+                      onAddLot={() => {
+                        setSelectedAddLot(true);
+                        setSelected(p);
+                      }}
                     />
                   </li>
                 ))}
@@ -284,6 +294,7 @@ export function InventoryView({
             setAddSuggestedMatch(null);
           }
         }}
+        catalog={products}
         prefill={addPrefill}
         suggestedMatch={addSuggestedMatch}
         onScanClick={openScanner}
@@ -294,7 +305,13 @@ export function InventoryView({
         warningDays={warningDays}
         canEdit={canEdit}
         rate={selected ? ratesByProduct[selected.id] : undefined}
-        onOpenChange={(open) => !open && setSelected(null)}
+        initialShowAddLot={selectedAddLot}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelected(null);
+            setSelectedAddLot(false);
+          }
+        }}
       />
 
       <BarcodeScannerSheet

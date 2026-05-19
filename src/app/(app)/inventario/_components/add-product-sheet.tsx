@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -40,6 +41,8 @@ import type { LotPrefill } from "./lot-form";
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Catálogo completo de productos del hogar (para sugerir y evitar duplicados). */
+  catalog: ProductWithLots[];
   /** Datos prellenados (típicamente desde Open Food Facts via escaneo). */
   prefill?: LotPrefill | null;
   /** Si hay un producto existente que matchea por nombre/categoría, lo sugerimos. */
@@ -55,6 +58,7 @@ type Mode =
 export function AddProductSheet({
   open,
   onOpenChange,
+  catalog,
   prefill,
   suggestedMatch,
   onScanClick,
@@ -144,7 +148,11 @@ export function AddProductSheet({
 
           {mode.kind === "create" ? (
             <CreateForm
+              catalog={catalog}
               prefill={prefill}
+              onPickExisting={(product) =>
+                setMode({ kind: "addToExisting", product })
+              }
               onSuccess={() => onOpenChange(false)}
             />
           ) : (
@@ -208,10 +216,14 @@ function MatchSwitcher({
 // ----------------------------------------------------------------------------
 
 function CreateForm({
+  catalog,
   prefill,
+  onPickExisting,
   onSuccess,
 }: {
+  catalog: ProductWithLots[];
   prefill?: LotPrefill | null;
+  onPickExisting: (product: ProductWithLots) => void;
   onSuccess: () => void;
 }) {
   const router = useRouter();
@@ -221,6 +233,8 @@ function CreateForm({
   // Tipo
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
+  /** El usuario nunca tocó manualmente categoría → podemos auto-rellenarla. */
+  const [categoryAutoFilled, setCategoryAutoFilled] = useState(true);
   const [unit, setUnit] = useState<Unit>("un");
   const [threshold, setThreshold] = useState("1");
 
@@ -232,10 +246,44 @@ function CreateForm({
   const [brand, setBrand] = useState<string>(prefill?.brand ?? "");
   const [barcode, setBarcode] = useState<string>(prefill?.barcode ?? "");
 
+  // Opciones para el combobox = catálogo del hogar (productos activos).
+  const options: ComboboxOption<ProductWithLots>[] = catalog
+    .filter((p) => p.is_active)
+    .map((p) => ({
+      value: p.id,
+      label: p.name,
+      hint: p.category ?? undefined,
+      data: p,
+    }));
+
+  function handlePickFromCatalog(opt: ComboboxOption<ProductWithLots>) {
+    // Si ya existe en el catálogo, mejor sumar al existente para no duplicar.
+    if (opt.data) {
+      onPickExisting(opt.data);
+    }
+  }
+
+  function handleNameChange(v: string) {
+    setName(v);
+    // Si la categoría está libre (no la editó el usuario), sugerimos una
+    // del catálogo según palabras en común con el nombre tipeado.
+    if (categoryAutoFilled) {
+      const suggestion = suggestCategoryFromCatalog(v, catalog);
+      setCategory(suggestion ?? "");
+    }
+  }
+
   function handleSubmit() {
     setError(null);
     if (!name.trim()) {
       setError("Ponele un nombre al tipo (ej. 'Leche').");
+      return;
+    }
+    // Defensa adicional: si el nombre coincide (case/acentos) con uno existente,
+    // forzamos el switch para no permitir duplicados.
+    const dup = catalog.find((p) => normalizeName(p.name) === normalizeName(name));
+    if (dup) {
+      onPickExisting(dup);
       return;
     }
     const qty = Number(quantity.replace(",", "."));
@@ -288,12 +336,14 @@ function CreateForm({
           <Label htmlFor="ap-name">
             Nombre <span className="text-destructive">*</span>
           </Label>
-          <Input
+          <Combobox<ProductWithLots>
             id="ap-name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onValueChange={handleNameChange}
+            options={options}
+            onSelect={handlePickFromCatalog}
             placeholder="Leche"
-            autoComplete="off"
+            emptyHint="No está en tu catálogo — se va a crear como nuevo."
             required
           />
           {prefill?.brand && (
@@ -310,7 +360,10 @@ function CreateForm({
           <Input
             id="ap-category"
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e) => {
+              setCategory(e.target.value);
+              setCategoryAutoFilled(false);
+            }}
             placeholder="Lácteos"
             autoComplete="off"
           />
@@ -554,4 +607,47 @@ function AddLotToExistingForm({
       </Button>
     </div>
   );
+}
+
+function normalizeName(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+}
+
+/**
+ * Heurística rápida para auto-rellenar la categoría: busca productos del
+ * catálogo del hogar con palabras en común con el nombre tipeado y devuelve
+ * la categoría más frecuente entre los matches. Si nada coincide, null.
+ */
+function suggestCategoryFromCatalog(
+  name: string,
+  catalog: ProductWithLots[],
+): string | null {
+  const tokens = tokenize(name);
+  if (tokens.length === 0) return null;
+
+  // Cuenta votos por category entre productos que comparten al menos un token.
+  const votes = new Map<string, number>();
+  for (const p of catalog) {
+    if (!p.category) continue;
+    const pTokens = tokenize(p.name);
+    const shared = pTokens.filter((t) => tokens.includes(t)).length;
+    if (shared === 0) continue;
+    votes.set(p.category, (votes.get(p.category) ?? 0) + shared);
+  }
+
+  let best: { category: string; score: number } | null = null;
+  for (const [cat, score] of votes) {
+    if (!best || score > best.score) best = { category: cat, score };
+  }
+  return best ? best.category : null;
+}
+
+function tokenize(s: string): string[] {
+  return normalizeName(s)
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3);
 }

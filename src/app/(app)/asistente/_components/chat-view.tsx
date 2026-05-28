@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Send, Sparkles, Trash2 } from "lucide-react";
+import { ChefHat, Loader2, Send, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RecipeSuggestionsDialog } from "./recipe-suggestions";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -36,6 +37,7 @@ export function ChatView({ householdName }: Props) {
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recipesOpen, setRecipesOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -128,6 +130,33 @@ export function ChatView({ householdName }: Props) {
           </Button>
         )}
       </header>
+
+      {/* Quick action: sugerencias de recetas */}
+      <div className="px-4 pt-3">
+        <button
+          type="button"
+          onClick={() => setRecipesOpen(true)}
+          className="w-full flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 active:scale-[0.99] transition-all px-3 py-2.5 text-left"
+        >
+          <span className="inline-flex items-center justify-center size-9 rounded-lg bg-primary/15 text-primary shrink-0">
+            <ChefHat className="size-5" />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-semibold text-foreground">
+              ¿Qué cocino hoy?
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              Ideas con lo que tenés, priorizando lo que vence pronto.
+            </span>
+          </span>
+          <Sparkles className="size-4 text-primary shrink-0" />
+        </button>
+      </div>
+
+      <RecipeSuggestionsDialog
+        open={recipesOpen}
+        onOpenChange={setRecipesOpen}
+      />
 
       <div
         ref={scrollRef}

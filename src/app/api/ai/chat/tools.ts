@@ -93,6 +93,7 @@ const listInventory: ToolHandler = async (input, ctx) => {
           name: p.name,
           quantity: Number(p.quantity),
           unit: p.unit,
+          variants: variantsFor(p),
           brands: brandsFor(p),
           next_expiry: nextExpiryFor(p),
           has_frozen: p.lots.some((l) => l.frozen_at),
@@ -142,6 +143,7 @@ const listExpiringSoon: ToolHandler = async (input, ctx) => {
     product_name: string;
     quantity: number;
     unit: string;
+    variant: string | null;
     brand: string | null;
     expires_on: string;
     days_left: number;
@@ -163,6 +165,7 @@ const listExpiringSoon: ToolHandler = async (input, ctx) => {
         product_name: p.name,
         quantity: Number(lot.quantity),
         unit: p.unit,
+        variant: lot.variant,
         brand: lot.brand,
         expires_on: eff.toISOString().slice(0, 10),
         days_left: daysLeft,
@@ -429,6 +432,14 @@ function groupByDepartment(
     map[d].push(p);
   }
   return map;
+}
+
+function variantsFor(p: ProductWithLots): string[] {
+  const set = new Set<string>();
+  for (const l of p.lots) {
+    if (l.variant) set.add(l.variant);
+  }
+  return [...set];
 }
 
 function brandsFor(p: ProductWithLots): string[] {

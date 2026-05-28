@@ -56,6 +56,8 @@ type LotRow = {
   frozen_max_days: number | null;
   opened_at: string | null;
   opened_max_days: number | null;
+  variant: string | null;
+  brand: string | null;
   products: {
     name: string;
     household_id: string;
@@ -112,7 +114,7 @@ async function runExpirationCheck(): Promise<Summary> {
     const { data: lots, error: lotsError } = await supabase
       .from("stock_items")
       .select(
-        "id, product_id, quantity, expires_on, frozen_at, frozen_max_days, opened_at, opened_max_days, products!inner(name, household_id)",
+        "id, product_id, quantity, expires_on, frozen_at, frozen_max_days, opened_at, opened_max_days, variant, brand, products!inner(name, household_id)",
       )
       .in("products.household_id", householdIds)
       .gt("quantity", 0);
@@ -159,7 +161,7 @@ function bucketize(lots: LotRow[], warningDays: number): Buckets {
     const effective = effectiveExpiry(lot);
     if (!effective) continue;
     const days = diffDays(effective, now);
-    const name = lot.products?.name ?? "(producto)";
+    const name = describeLot(lot);
     if (days < 0) {
       expired.push({ name, daysAgo: Math.abs(days) });
     } else if (days <= warningDays) {
@@ -167,6 +169,16 @@ function bucketize(lots: LotRow[], warningDays: number): Buckets {
     }
   }
   return { expired, soon };
+}
+
+/**
+ * Texto humano para un lote en una notificación: "Galletitas (chips de
+ * chocolate · Cadbury)". Cae al nombre del producto si no hay variant/brand.
+ */
+function describeLot(lot: LotRow): string {
+  const base = lot.products?.name ?? "(producto)";
+  const detail = [lot.variant, lot.brand].filter(Boolean).join(" · ");
+  return detail ? `${base} (${detail})` : base;
 }
 
 function composePayload(buckets: Buckets, warningDays: number): PushPayload {

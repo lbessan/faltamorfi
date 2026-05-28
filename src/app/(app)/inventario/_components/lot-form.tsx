@@ -57,6 +57,7 @@ export function LotForm({
   const [brand, setBrand] = useState<string>(
     lot?.brand ?? prefill?.brand ?? "",
   );
+  const [variant, setVariant] = useState<string>(lot?.variant ?? "");
   const [barcode, setBarcode] = useState<string>(
     lot?.barcode ?? prefill?.barcode ?? "",
   );
@@ -97,6 +98,7 @@ export function LotForm({
         : null,
       opened_max_days: openedState.maxDays,
       brand: brand.trim() || null,
+      variant: variant.trim() || null,
       barcode: barcode.trim() || null,
       image_url: imageUrl || null,
       notes: notes.trim() || null,
@@ -191,6 +193,21 @@ export function LotForm({
         </div>
       </div>
 
+      <div className="space-y-1.5">
+        <Label htmlFor="lot-variant">Variante (opcional)</Label>
+        <Input
+          id="lot-variant"
+          value={variant}
+          onChange={(e) => setVariant(e.target.value)}
+          placeholder={variantPlaceholder(productName)}
+          autoComplete="off"
+        />
+        <p className="text-[11px] text-muted-foreground/80">
+          Subtipo dentro del producto. Ej.: chips de chocolate, tallarines,
+          descremada.
+        </p>
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1.5">
           <Label htmlFor="lot-brand">Marca</Label>
@@ -265,4 +282,31 @@ export function LotForm({
       </Button>
     </div>
   );
+}
+
+/**
+ * Sugerencia de variante según el tipo de producto. Pista visual para el
+ * usuario, no impone nada (el campo es texto libre).
+ */
+function variantPlaceholder(productName: string): string {
+  const n = productName.trim().toLowerCase();
+  if (n.includes("galletit")) return "chips de chocolate, manteca, oreo...";
+  if (n.includes("fideos")) return "tallarines, mostachoes, moñitos...";
+  if (n.includes("pasta")) return "ravioles, ñoquis, capeletini...";
+  if (n.includes("leche")) return "entera, descremada, sin lactosa...";
+  if (n.includes("yogur")) return "firme, bebible, griego...";
+  if (n.includes("queso")) return "cremoso, semiduro, rallado...";
+  if (n.includes("té")) return "negro, verde, manzanilla...";
+  if (n.includes("café")) return "molido, instantáneo, en grano...";
+  if (n.includes("yerba")) return "con palo, sin palo, saborizada...";
+  if (n.includes("arroz")) return "blanco, integral, parboiled...";
+  if (n.includes("harina")) return "000, 0000, integral...";
+  if (n.includes("aceite")) return "girasol, oliva, maíz...";
+  if (n.includes("vinagre")) return "alcohol, manzana, balsámico...";
+  if (n.includes("vino")) return "tinto, blanco, rosado...";
+  if (n.includes("cerveza")) return "rubia, negra, IPA...";
+  if (n.includes("pan")) return "lactal, francés, hamburguesa...";
+  if (n.includes("gaseosa")) return "coca-cola, sprite, fanta...";
+  if (n.includes("jamón")) return "cocido, crudo, natural...";
+  return "ej. variante o subtipo";
 }

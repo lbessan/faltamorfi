@@ -179,6 +179,8 @@ export type ReceiptItemInput = {
   quantity: number;
   unit: string;
   brand: string | null;
+  /** Subtipo del producto dentro de su tipo (sabor, formato, etc.). */
+  variant: string | null;
 };
 
 export type ConfirmReceiptResult = ActionState & {
@@ -234,6 +236,7 @@ export async function confirmReceiptAction(
         product_id: productId,
         quantity: item.quantity,
         brand: item.brand,
+        variant: item.variant,
         notes: item.raw_name !== item.new_type_name ? `Ticket: ${item.raw_name}` : null,
       });
       loaded++;

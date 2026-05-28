@@ -25,8 +25,16 @@ export type ReceiptItem = {
   price: number | null;
   /** Marca si se identifica. */
   brand: string | null;
-  /** Tipo genérico sugerido para el catálogo (ej. "Leche entera"). */
+  /**
+   * Tipo genérico AMPLIO sugerido para el catálogo (ej. "Galletitas",
+   * "Fideos", "Té"). No incluye el subtipo — ese va en `variant`.
+   */
   suggested_type: string | null;
+  /**
+   * Subtipo / variante del producto. Ejemplos: "chips de chocolate",
+   * "tallarines", "descremada", "negro", "tinto". Null si no aplica.
+   */
+  variant: string | null;
 };
 
 export type ParsedReceipt = {
@@ -48,14 +56,29 @@ Para cada producto detectado en el ticket, devolvé un item con:
 - **quantity**: cantidad numérica. Si el ticket muestra "2 x Leche..." es quantity 2. Si no se especifica, 1.
 - **unit**: "un" (default), "kg", "g", "l", "ml", o "paq". Adiviná según contexto. Productos a granel suelen ser kg o g; líquidos l o ml; sino "un".
 - **price**: precio TOTAL del item en pesos (ARS), incluyendo el "x cantidad". Decimal con punto. Null si no se ve claro.
-- **brand**: marca del producto si se identifica (ej. "La Serenísima"). Null si no.
-- **suggested_type**: tipo genérico para el catálogo doméstico en español rioplatense, sin marca ni cantidad. Ejemplos:
-  - "Leche entera", "Yogur", "Manteca"
-  - "Carne picada", "Pollo entero"
-  - "Pan lactal", "Galletitas dulces"
-  - "Detergente para vajilla", "Lavandina"
-  - "Papel higiénico", "Pasta dental"
+- **brand**: marca del producto si se identifica (ej. "La Serenísima", "Cadbury", "Oreo"). Null si no.
+- **suggested_type**: tipo genérico AMPLIO para el catálogo doméstico, en español rioplatense, sin marca ni subtipo. Usá categorías amplias del super, no el detalle específico. Ejemplos:
+  - "Leche" (no "Leche entera")
+  - "Yogur" (no "Yogur firme")
+  - "Galletitas" (no "Galletitas con chips" ni "Galletitas dulces")
+  - "Fideos" (no "Fideos cortos" ni "Tirabuzones")
+  - "Té" (no "Té negro")
+  - "Pan" (no "Pan lactal")
+  - "Aceite" (no "Aceite de girasol")
+  - "Vino" (no "Vino tinto")
+  - "Carne picada", "Pollo", "Lavandina", "Papel higiénico"
+  Pensá: ¿cómo lo pediría alguien gener al hacer la lista del super?
   Null si no podés determinar.
+- **variant**: el subtipo o sabor que distingue al item dentro de su tipo. Texto libre corto (1-4 palabras). Ejemplos:
+  - Galletitas → "chips de chocolate", "rellenas", "dulces de manteca", "saladas"
+  - Leche → "entera", "descremada", "sin lactosa"
+  - Yogur → "firme", "bebible", "griego"
+  - Fideos → "tallarines", "mostachoes", "tirabuzones", "spaghetti"
+  - Té → "negro", "verde", "manzanilla"
+  - Aceite → "girasol", "oliva", "maíz"
+  - Vino → "tinto", "blanco", "rosado"
+  - Pan → "lactal", "francés", "hamburguesa"
+  Null si no aplica (ej. "Sal", "Manteca", "Curitas").
 
 # Qué IGNORAR (no incluir como items)
 
@@ -128,6 +151,7 @@ export async function parseReceipt(input: {
                   price: { type: ["number", "null"] },
                   brand: { type: ["string", "null"] },
                   suggested_type: { type: ["string", "null"] },
+                  variant: { type: ["string", "null"] },
                 },
                 required: [
                   "raw_name",
@@ -136,6 +160,7 @@ export async function parseReceipt(input: {
                   "price",
                   "brand",
                   "suggested_type",
+                  "variant",
                 ],
                 additionalProperties: false,
               },
@@ -186,6 +211,11 @@ export async function parseReceipt(input: {
       suggested_type:
         typeof i.suggested_type === "string" && i.suggested_type.trim()
           ? i.suggested_type.trim()
+          : null,
+      variant:
+        typeof (i as { variant?: unknown }).variant === "string" &&
+        ((i as { variant?: unknown }).variant as string).trim()
+          ? ((i as { variant?: unknown }).variant as string).trim()
           : null,
     }));
 

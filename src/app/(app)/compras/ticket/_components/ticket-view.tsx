@@ -63,6 +63,8 @@ type ReviewRow = {
   productId: string | null;
   /** Texto del input "tipo". Si matchea, productId tiene el id; si no, queda null y se crea como nuevo. */
   typeText: string;
+  /** Subtipo del producto (texto libre, editable). */
+  variantText: string;
   /** Cantidad editable. */
   quantity: number;
   /** Unidad. */
@@ -185,10 +187,12 @@ export function TicketView({ catalog }: Props) {
               price: null,
               brand: null,
               suggested_type: null,
+              variant: null,
             },
             include: true,
             productId: null,
             typeText: "",
+            variantText: "",
             quantity: 1,
             unit: "un",
           },
@@ -210,6 +214,7 @@ export function TicketView({ catalog }: Props) {
         quantity: r.quantity,
         unit: r.unit,
         brand: r.source.brand,
+        variant: r.variantText.trim() || null,
       }));
 
     if (inputs.length === 0) {
@@ -633,6 +638,14 @@ function ReviewRowItem({
               className="h-8 text-sm"
             />
           </div>
+          <div className="mt-1.5">
+            <Input
+              value={row.variantText}
+              onChange={(e) => onUpdate({ variantText: e.target.value })}
+              placeholder="Variante (opcional)"
+              className="h-8 text-sm"
+            />
+          </div>
           <div className="mt-1.5 flex items-center gap-2">
             <Input
               type="number"
@@ -719,6 +732,7 @@ function buildRows(
       include: true,
       productId: matched?.id ?? null,
       typeText: matched ? matched.name : suggested,
+      variantText: item.variant ?? "",
       quantity: item.quantity,
       unit: item.unit,
     };

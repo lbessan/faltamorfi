@@ -73,8 +73,14 @@ export function LotCard({ lot, unit, warningDays, onEdit }: Props) {
             <ExpirationBadge status={status} />
           </div>
 
-          {(lot.brand || lot.barcode) && (
+          {(lot.variant || lot.brand || lot.barcode) && (
             <div className="text-sm truncate">
+              {lot.variant && (
+                <span className="font-medium">{lot.variant}</span>
+              )}
+              {lot.variant && (lot.brand || lot.barcode) && (
+                <span className="text-muted-foreground"> · </span>
+              )}
               {lot.brand && <span>{lot.brand}</span>}
               {lot.brand && lot.barcode && (
                 <span className="text-muted-foreground"> · </span>

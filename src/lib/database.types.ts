@@ -169,6 +169,7 @@ export type Database = {
           opened_at: string | null;
           opened_max_days: number | null;
           brand: string | null;
+          variant: string | null;
           barcode: string | null;
           image_url: string | null;
           notes: string | null;
@@ -185,6 +186,7 @@ export type Database = {
           opened_at?: string | null;
           opened_max_days?: number | null;
           brand?: string | null;
+          variant?: string | null;
           barcode?: string | null;
           image_url?: string | null;
           notes?: string | null;
@@ -201,6 +203,7 @@ export type Database = {
           opened_at?: string | null;
           opened_max_days?: number | null;
           brand?: string | null;
+          variant?: string | null;
           barcode?: string | null;
           image_url?: string | null;
           notes?: string | null;

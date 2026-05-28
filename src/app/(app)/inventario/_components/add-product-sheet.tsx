@@ -256,6 +256,7 @@ function CreateForm({
     prefill?.expires_on ?? "",
   );
   const [brand, setBrand] = useState<string>(prefill?.brand ?? "");
+  const [variant, setVariant] = useState<string>("");
   const [barcode, setBarcode] = useState<string>(prefill?.barcode ?? "");
   const [frozenState, setFrozenState] = useState<LotStateValues>({
     date: null,
@@ -333,6 +334,7 @@ function CreateForm({
             : null,
           opened_max_days: openedState.maxDays,
           brand: brand.trim() || null,
+          variant: variant.trim() || null,
           barcode: barcode.trim() || null,
           image_url: prefill?.image_url ?? null,
           notes: null,
@@ -455,6 +457,17 @@ function CreateForm({
           </div>
         </div>
 
+        <div className="space-y-1.5">
+          <Label htmlFor="ap-variant">Variante (opcional)</Label>
+          <Input
+            id="ap-variant"
+            value={variant}
+            onChange={(e) => setVariant(e.target.value)}
+            placeholder={variantPlaceholderForName(name)}
+            autoComplete="off"
+          />
+        </div>
+
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
             <Label htmlFor="ap-brand">Marca</Label>
@@ -541,6 +554,7 @@ function AddLotToExistingForm({
   const [quantity, setQuantity] = useState("1");
   const [expiresOn, setExpiresOn] = useState<string>(prefill?.expires_on ?? "");
   const [brand, setBrand] = useState<string>(prefill?.brand ?? "");
+  const [variant, setVariant] = useState<string>("");
   const [barcode, setBarcode] = useState<string>(prefill?.barcode ?? "");
   const [frozenState, setFrozenState] = useState<LotStateValues>({
     date: null,
@@ -572,6 +586,7 @@ function AddLotToExistingForm({
         : null,
       opened_max_days: openedState.maxDays,
       brand: brand.trim() || null,
+      variant: variant.trim() || null,
       barcode: barcode.trim() || null,
       image_url: prefill?.image_url ?? null,
     };
@@ -611,6 +626,17 @@ function AddLotToExistingForm({
             onChange={(e) => setExpiresOn(e.target.value)}
           />
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="ae-variant">Variante (opcional)</Label>
+        <Input
+          id="ae-variant"
+          value={variant}
+          onChange={(e) => setVariant(e.target.value)}
+          placeholder={variantPlaceholderForName(product.name)}
+          autoComplete="off"
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -723,4 +749,31 @@ function tokenize(s: string): string[] {
   return normalizeName(s)
     .split(/[^a-z0-9]+/)
     .filter((t) => t.length >= 3);
+}
+
+/**
+ * Placeholder sugerido para el campo "variante" según el tipo de producto.
+ * Solo es una pista visual; el campo acepta texto libre.
+ */
+function variantPlaceholderForName(productName: string): string {
+  const n = productName.trim().toLowerCase();
+  if (n.includes("galletit")) return "chips de chocolate, manteca, oreo...";
+  if (n.includes("fideos")) return "tallarines, mostachoes, moñitos...";
+  if (n.includes("pasta")) return "ravioles, ñoquis, capeletini...";
+  if (n.includes("leche")) return "entera, descremada, sin lactosa...";
+  if (n.includes("yogur")) return "firme, bebible, griego...";
+  if (n.includes("queso")) return "cremoso, semiduro, rallado...";
+  if (n.includes("té")) return "negro, verde, manzanilla...";
+  if (n.includes("café")) return "molido, instantáneo, en grano...";
+  if (n.includes("yerba")) return "con palo, sin palo, saborizada...";
+  if (n.includes("arroz")) return "blanco, integral, parboiled...";
+  if (n.includes("harina")) return "000, 0000, integral...";
+  if (n.includes("aceite")) return "girasol, oliva, maíz...";
+  if (n.includes("vinagre")) return "alcohol, manzana, balsámico...";
+  if (n.includes("vino")) return "tinto, blanco, rosado...";
+  if (n.includes("cerveza")) return "rubia, negra, IPA...";
+  if (n.includes("pan")) return "lactal, francés, hamburguesa...";
+  if (n.includes("gaseosa")) return "coca-cola, sprite, fanta...";
+  if (n.includes("jamón")) return "cocido, crudo, natural...";
+  return "ej. variante o subtipo";
 }

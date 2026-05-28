@@ -218,8 +218,16 @@ function LotRow({
       </span>
 
       <div className="flex-1 min-w-0 flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs">
-        {lot.brand && (
-          <span className="text-foreground truncate">{lot.brand}</span>
+        {(lot.variant || lot.brand) && (
+          <span className="text-foreground truncate">
+            {lot.variant && (
+              <span className="font-medium">{lot.variant}</span>
+            )}
+            {lot.variant && lot.brand && (
+              <span className="text-muted-foreground"> · </span>
+            )}
+            {lot.brand && <span>{lot.brand}</span>}
+          </span>
         )}
         {expInfo && (
           <span

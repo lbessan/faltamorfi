@@ -160,6 +160,7 @@ export type CreateProductWithLotInput = {
     opened_at: string | null;
     opened_max_days: number | null;
     brand: string | null;
+    variant: string | null;
     barcode: string | null;
     image_url: string | null;
     notes: string | null;
@@ -215,6 +216,7 @@ export async function createProductWithLotAction(
       opened_at: input.lot.opened_at,
       opened_max_days: input.lot.opened_max_days,
       brand: input.lot.brand,
+      variant: input.lot.variant,
       barcode: input.lot.barcode,
       image_url: input.lot.image_url,
       notes: input.lot.notes,
@@ -260,6 +262,7 @@ export type LotInput = {
   opened_at?: string | null;
   opened_max_days?: number | null;
   brand?: string | null;
+  variant?: string | null;
   barcode?: string | null;
   image_url?: string | null;
   notes?: string | null;
@@ -284,6 +287,7 @@ export async function addLotAction(input: LotInput): Promise<ActionState> {
       opened_at: input.opened_at ?? null,
       opened_max_days: input.opened_max_days ?? null,
       brand: input.brand ?? null,
+      variant: input.variant ?? null,
       barcode: input.barcode ?? null,
       image_url: input.image_url ?? null,
       notes: input.notes ?? null,
@@ -310,6 +314,7 @@ export async function updateLotAction(
       opened_at: patch.opened_at,
       opened_max_days: patch.opened_max_days,
       brand: patch.brand,
+      variant: patch.variant,
       barcode: patch.barcode,
       image_url: patch.image_url,
       notes: patch.notes,

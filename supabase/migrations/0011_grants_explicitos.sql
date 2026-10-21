@@ -1,0 +1,50 @@
+-- ============================================================================
+-- Falta Morfi — Permisos explícitos de la API sobre lo que ya existe
+--
+-- Pegá todo en el SQL Editor y ejecutá. Idempotente: dar un permiso que ya
+-- está no cambia nada.
+--
+-- Por qué (aviso de Supabase del 2026-10-20: «new tables in "public" need
+-- grants from October 30»): hasta la 0010 ninguna migración daba permisos.
+-- Cada tabla los recibía sola, de los permisos por defecto que Supabase fija
+-- para lo que crea `postgres` en `public`. Desde el 2026-10-30 Supabase saca
+-- esos permisos por defecto, en este proyecto y en todo lo que se arme de cero
+-- (un proyecto nuevo, una restauración desde estas migraciones,
+-- `supabase db reset`, preview branches). Las tablas que ya existen conservan
+-- los suyos.
+--
+-- Qué cambia:
+--   * En PROD, nada: estas tablas ya tienen estos permisos.
+--   * En lo que se arme de cero (schema.sql y después 0002 → la última), sin
+--     esto ninguna tabla sería accesible por la API: ni con la sesión del
+--     usuario ni con la service key (service_role saltea la RLS, no los
+--     permisos).
+--
+-- A quién:
+--   * authenticated: la app lee y escribe con la sesión del usuario. La RLS
+--     sigue decidiendo qué filas ve cada uno.
+--   * service_role: el cron de vencimientos (/api/cron/check-expirations).
+--   * anon: nada. La app no lee ninguna tabla sin sesión: la clave pública sin
+--     sesión sólo hace el login (magic link y Google), y la página de
+--     invitación manda al login antes de leer. Ninguna policy es para anon.
+--
+-- Lo que no hace, a propósito:
+--   * No hay `alter default privileges`: lo que se cree después no queda
+--     expuesto solo. Desde esta migración, cada tabla o vista nueva de
+--     `public` lleva sus permisos en su propia migración:
+--       grant select, insert, update, delete on public.<tabla> to authenticated, service_role;
+--     (y anon sólo si se lee sin sesión). `npm run check-grants` lo frena.
+--   * No toca las funciones: el cambio de Supabase no las afecta y siguen
+--     ejecutables como hoy.
+--   * No había ningún `revoke` previo que repetir.
+--
+-- Secuencias: hoy no hay ninguna (todas las claves son uuid), así que ese
+-- grant no cambia nada; completa lo que daban los permisos automáticos. Una
+-- secuencia nueva (serial o create sequence) lleva en su migración
+-- `grant usage, select on sequence ... to authenticated, service_role;`
+-- (una columna `generated ... as identity` no pide nada).
+-- ============================================================================
+
+grant select, insert, update, delete on all tables in schema public to authenticated, service_role;
+
+grant usage, select on all sequences in schema public to authenticated, service_role;

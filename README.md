@@ -27,6 +27,7 @@ npm install
 3. En **Authentication → URL Configuration**:
    - **Site URL**: `http://localhost:3000` (dev) o tu dominio de Vercel.
    - **Redirect URLs**: agregá `http://localhost:3000/auth/callback` y la URL equivalente en producción.
+4. En el **SQL Editor**, pegá y ejecutá `supabase/schema.sql` y después cada archivo de `supabase/migrations/`, en orden. La `0011` da los permisos de la API: desde el 30/10/2026 Supabase no los da solos, y sin ella ninguna tabla responde («permission denied»).
 
 ### 3. Variables de entorno
 
@@ -56,6 +57,8 @@ Abrir [http://localhost:3000](http://localhost:3000). Te va a redirigir a `/logi
 | `npm run build` | Build de producción (genera el service worker) |
 | `npm run start` | Server de producción |
 | `npm run lint` | ESLint |
+| `npm run check-grants` | Guardia: toda tabla o vista nueva de `public` lleva sus permisos en su migración |
+| `npm test` | Tests (`node --test`) |
 
 ## Estructura
 

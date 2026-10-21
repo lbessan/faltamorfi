@@ -10,11 +10,76 @@
  * grant decide si se puede llegar a la tabla.
  */
 
-/** El SQL sin comentarios (`-- …` y `/* … *\/`): lo que está comentado no cuenta. */
+/**
+ * El SQL con los comentarios (`-- …` y los de bloque, anidados como en Postgres) cambiados por
+ * espacios: lo comentado no cuenta. Recorre el texto una vez: entre comillas simples o dobles, `--`
+ * y `/*` no son comentarios. Lo que va entre `$…$` (el cuerpo de un `do` o de una función) se lee
+ * como SQL, porque es código. Cada carácter queda en su lugar (mismo largo, mismos saltos de línea).
+ *
+ * No con dos reemplazos de regex: un `/*` dentro de un `--` (un camino como `scripts/*.mjs`) y un
+ * `*\/` más adelante se tomaban como un comentario de bloque y borraban todo lo del medio, un
+ * `create table` incluido: la guardia no lo veía. (Lo encontró la revisión de facturacion-sn,
+ * 2026-10-20.)
+ */
 export function sinComentarios(sql) {
-  return String(sql)
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/--[^\n]*/g, " ");
+  sql = String(sql);
+  const n = sql.length;
+  let salida = "";
+  let i = 0;
+  while (i < n) {
+    const c = sql[i];
+    if (c === "-" && sql[i + 1] === "-") {
+      while (i < n && sql[i] !== "\n") {
+        salida += " ";
+        i++;
+      }
+      continue;
+    }
+    if (c === "/" && sql[i + 1] === "*") {
+      let nivel = 0;
+      do {
+        if (sql[i] === "/" && sql[i + 1] === "*") {
+          nivel++;
+          salida += "  ";
+          i += 2;
+        } else if (sql[i] === "*" && sql[i + 1] === "/") {
+          nivel--;
+          salida += "  ";
+          i += 2;
+        } else {
+          salida += sql[i] === "\n" ? "\n" : " ";
+          i++;
+        }
+      } while (i < n && nivel > 0);
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      // E'…' acepta \' adentro; en el resto, la comilla se escapa duplicándola.
+      const conBarra =
+        c === "'" && /[eE]/.test(sql[i - 1] ?? "") && !/[A-Za-z0-9_$]/.test(sql[i - 2] ?? "");
+      let j = i + 1;
+      while (j < n) {
+        if (conBarra && sql[j] === "\\") {
+          j += 2;
+          continue;
+        }
+        if (sql[j] === c) {
+          if (sql[j + 1] === c) {
+            j += 2;
+            continue;
+          }
+          break;
+        }
+        j++;
+      }
+      salida += sql.slice(i, j + 1);
+      i = j + 1;
+      continue;
+    }
+    salida += c;
+    i++;
+  }
+  return salida;
 }
 
 const IDENT = String.raw`(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)`;

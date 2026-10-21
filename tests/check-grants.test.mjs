@@ -54,6 +54,29 @@ describe("lo que una migración crea en public", () => {
   });
 });
 
+describe("los comentarios", () => {
+  const creadas = (sql) => objetosCreadosEnPublic(sql).map((o) => o.nombre);
+
+  it("un «/*» adentro de un «--» no abre un comentario de bloque", () => {
+    assert.deepEqual(creadas("-- ver scripts/*.mjs\ncreate table public.x (id int);\n/* nota */"), ["x"]);
+  });
+
+  it("un «--» o un «/*» adentro de un texto entre comillas no son comentarios", () => {
+    assert.deepEqual(creadas("comment on table public.y is 'a -- b /* c';\ncreate table public.z (id int);"), ["z"]);
+    // Con un «*/» más adelante, o con el create en el mismo renglón que el texto.
+    assert.deepEqual(
+      creadas("comment on table public.y is 'a -- b /* c';\ncreate table public.z (id int);\n/* nota */"),
+      ["z"],
+    );
+    assert.deepEqual(creadas("select 'a -- b'; create table public.w (id int);"), ["w"]);
+  });
+
+  it("los comentarios de bloque se anidan, como en Postgres: lo de adentro no cuenta", () => {
+    const sql = "/* afuera /* adentro */ create table public.oculta (id int); */\ncreate table public.visible (id int);";
+    assert.deepEqual(creadas(sql), ["visible"]);
+  });
+});
+
 describe("lo que le falta a cada tabla nueva", () => {
   it("sin grants, le faltan los dos roles; con los dos, nada", () => {
     assert.deepEqual(faltanGrants("create table public.x (id int);"), [
